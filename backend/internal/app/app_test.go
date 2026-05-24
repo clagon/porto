@@ -1,9 +1,13 @@
 package app
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/clagon/port-mapper/backend/internal/config"
@@ -86,24 +90,28 @@ func TestConfigPathDefaultUsesBinaryDir(t *testing.T) {
 
 func TestStartOpensBrowserOnlyWhenEnabled(t *testing.T) {
 	tests := []struct {
-		name         string
-		openBrowser  bool
-		wantCalls    int
-		wantURL      string
+		name        string
+		openBrowser bool
+		wantCalls   int
+		wantURL     string
+		wantLog     string
 	}{
 		{name: "disabled", openBrowser: false, wantCalls: 0},
-		{name: "enabled", openBrowser: true, wantCalls: 1, wantURL: "http://127.0.0.1:8080/"},
+		{name: "enabled", openBrowser: true, wantCalls: 1, wantURL: "http://127.0.0.1:8080/", wantLog: "opening browser"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []string
+			var logBuf bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelInfo}))
 			a, err := New(AppOptions{
-				OpenBrowser:  tt.openBrowser,
+				OpenBrowser: tt.openBrowser,
 				BrowserOpener: browserOpenerFunc(func(url string) error {
 					got = append(got, url)
 					return nil
 				}),
+				Logger: logger,
 			})
 			if err != nil {
 				t.Fatalf("New() error = %v", err)
@@ -117,12 +125,15 @@ func TestStartOpensBrowserOnlyWhenEnabled(t *testing.T) {
 			if tt.wantURL != "" && got[0] != tt.wantURL {
 				t.Fatalf("browser url = %q, want %q", got[0], tt.wantURL)
 			}
+			if tt.wantLog != "" && !strings.Contains(logBuf.String(), tt.wantLog) {
+				t.Fatalf("log missing %q: %s", tt.wantLog, logBuf.String())
+			}
 		})
 	}
 }
 
 func TestHealthHandler(t *testing.T) {
-	a, err := New(AppOptions{})
+	a, err := New(AppOptions{Logger: slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

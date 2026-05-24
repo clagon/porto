@@ -22,8 +22,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("port-mapper config: %s", a.ConfigPath())
-	log.Printf("port-mapper listening on %s", a.Addr())
 	if err := a.Run(); err != nil {
 		log.Fatal(err)
 	}

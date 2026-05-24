@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -23,6 +24,7 @@ type AppOptions struct {
 	ConfigPath    string
 	OpenBrowser   bool
 	BrowserOpener BrowserOpener
+	Logger        *slog.Logger
 }
 
 // App is the top-level application container.
@@ -32,6 +34,7 @@ type App struct {
 	configPath    string
 	openBrowser   bool
 	browserOpener BrowserOpener
+	logger        *slog.Logger
 }
 
 // New constructs a new App using the provided options.
@@ -56,12 +59,18 @@ func New(opts AppOptions) (*App, error) {
 		return nil, err
 	}
 
+	logger := opts.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &App{
 		cfg:           cfg,
-		server:        server.New(cfg.ListenAddr),
+		server:        server.New(cfg.ListenAddr, logger),
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,
 		browserOpener: opts.BrowserOpener,
+		logger:        logger,
 	}, nil
 }
 
@@ -94,6 +103,9 @@ func (a *App) Start() error {
 	if a == nil || !a.openBrowser || a.browserOpener == nil {
 		return nil
 	}
+	if a.logger != nil {
+		a.logger.Info("opening browser", "url", a.browserURL())
+	}
 	return a.browserOpener.Open(a.browserURL())
 }
 
@@ -102,15 +114,35 @@ func (a *App) Run() error {
 	if a == nil || a.server == nil {
 		return nil
 	}
+	if a.logger != nil {
+		a.logger.Info("starting backend",
+			"config_path", a.configPath,
+			"listen_addr", a.server.Addr(),
+			"auto_discover", boolValue(a.cfg.AutoDiscover),
+		)
+	}
 	ln, err := net.Listen("tcp", a.server.Addr())
 	if err != nil {
+		if a.logger != nil {
+			a.logger.Error("failed to bind listen address", "listen_addr", a.server.Addr(), "error", err)
+		}
 		return err
 	}
+	if a.logger != nil {
+		a.logger.Info("listening", "listen_addr", a.server.Addr())
+	}
 	if a.openBrowser && a.browserOpener != nil {
-		if err := a.browserOpener.Open(a.browserURL()); err != nil {
-			// Browser launch failures should not prevent the server from starting.
-			_ = err
+		if a.logger != nil {
+			a.logger.Info("opening browser", "url", a.browserURL())
 		}
+		if err := a.browserOpener.Open(a.browserURL()); err != nil {
+			if a.logger != nil {
+				a.logger.Warn("browser open failed", "url", a.browserURL(), "error", err)
+			}
+		}
+	}
+	if a.logger != nil {
+		a.logger.Info("server running")
 	}
 	return a.server.Serve(ln)
 }
@@ -142,4 +174,8 @@ func validateLocalListenAddr(addr string) error {
 		return nil
 	}
 	return fmt.Errorf("listen addr must bind to localhost, got %q", addr)
+}
+
+func boolValue(v *bool) bool {
+	return v != nil && *v
 }
