@@ -4,6 +4,7 @@
 
 `port-mapper` is a local-only UPnP port mapping tool.
 It runs a Go backend on `127.0.0.1`, serves the Svelte UI, and stores `config.json` beside the binary.
+It works on Linux, macOS, and Windows.
 
 ## Quick start
 
@@ -17,7 +18,7 @@ On startup, the app:
 - loads `config.json` from the same directory as the binary
 - falls back to safe defaults when the file does not exist
 - binds only to `127.0.0.1`
-- opens the local UI in your browser when browser opening is enabled
+- opens the local UI in your browser when browser opening is enabled, using the platform default browser launcher
 
 ## Config file
 
@@ -27,6 +28,8 @@ The runtime config lives next to the executable:
 /path/to/port-mapper
 /path/to/config.json
 ```
+
+On Windows, the config sits beside `port-mapper.exe` in the same folder.
 
 If `config.json` is missing, the app uses defaults.
 

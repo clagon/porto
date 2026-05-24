@@ -2,21 +2,15 @@ package main
 
 import (
 	"log"
-	"os/exec"
 
 	"github.com/clagon/port-mapper/backend/internal/app"
+	"github.com/clagon/port-mapper/backend/internal/browseropener"
 )
-
-type xdgBrowserOpener struct{}
-
-func (xdgBrowserOpener) Open(url string) error {
-	return exec.Command("xdg-open", url).Start()
-}
 
 func main() {
 	a, err := app.New(app.AppOptions{
 		OpenBrowser:   true,
-		BrowserOpener: xdgBrowserOpener{},
+		BrowserOpener: browseropener.New(),
 	})
 	if err != nil {
 		log.Fatal(err)

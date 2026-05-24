@@ -1,6 +1,6 @@
 # port-mapper
 
-A small local UPnP port-mapping tool.
+A small local UPnP port-mapping tool for Linux, macOS, and Windows.
 
 ## What it is
 
@@ -22,7 +22,7 @@ The app will:
 - load `config.json` from the same directory as the executable
 - fall back to safe defaults when the file is missing
 - bind only to `127.0.0.1`
-- try to open your browser automatically
+- try to open your browser automatically using the platform default browser launcher
 
 If the browser does not open, visit:
 
