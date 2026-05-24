@@ -119,6 +119,7 @@ func (a *App) Run() error {
 			"config_path", a.configPath,
 			"listen_addr", a.server.Addr(),
 			"auto_discover", boolValue(a.cfg.AutoDiscover),
+			"browser_open", a.openBrowser,
 		)
 	}
 	ln, err := net.Listen("tcp", a.server.Addr())
