@@ -1,15 +1,30 @@
 package upnp
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/textproto"
 	"net/url"
 	"strings"
+	"time"
 )
 
+const (
+	ssdpAddress      = "239.255.255.250:1900"
+	ssdpSearchTarget = "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
+	ssdpTimeout      = 3 * time.Second
+)
+
+type locationFetcher func(string) ([]byte, error)
+
 type rootDevice struct {
-	XMLName xml.Name `xml:"root"`
-	Device  device   `xml:"device"`
+	Device device `xml:"device"`
 }
 
 type device struct {
@@ -23,6 +38,113 @@ type serviceList struct {
 type service struct {
 	ServiceType string `xml:"serviceType"`
 	ControlURL  string `xml:"controlURL"`
+}
+
+// Discover sends an SSDP M-SEARCH and returns the first supported gateway it can resolve.
+func Discover() (DiscoveryResult, error) {
+	conn, err := net.ListenPacket("udp4", ":0")
+	if err != nil {
+		return DiscoveryResult{}, fmt.Errorf("listen for SSDP: %w", err)
+	}
+	defer conn.Close()
+
+	if err := conn.SetDeadline(time.Now().Add(ssdpTimeout)); err != nil {
+		return DiscoveryResult{}, fmt.Errorf("set SSDP deadline: %w", err)
+	}
+
+	search := strings.Join([]string{
+		"M-SEARCH * HTTP/1.1",
+		"HOST: 239.255.255.250:1900",
+		`MAN: "ssdp:discover"`,
+		"MX: 1",
+		"ST: " + ssdpSearchTarget,
+		"",
+		"",
+	}, "\r\n")
+	addr, err := net.ResolveUDPAddr("udp4", ssdpAddress)
+	if err != nil {
+		return DiscoveryResult{}, fmt.Errorf("resolve SSDP address: %w", err)
+	}
+	if _, err := conn.WriteTo([]byte(search), addr); err != nil {
+		return DiscoveryResult{}, fmt.Errorf("send SSDP search: %w", err)
+	}
+
+	buf := make([]byte, 65535)
+	for {
+		n, _, err := conn.ReadFrom(buf)
+		if err != nil {
+			if isTimeout(err) {
+				break
+			}
+			return DiscoveryResult{}, fmt.Errorf("read SSDP response: %w", err)
+		}
+
+		location, err := parseSSDPResponse(buf[:n])
+		if err != nil {
+			continue
+		}
+
+		result, err := discoverFromLocation(location, defaultLocationFetcher)
+		if err == nil {
+			return result, nil
+		}
+	}
+
+	return DiscoveryResult{}, errors.New("no UPnP gateway discovered")
+}
+
+func discoverFromLocation(location string, fetch locationFetcher) (DiscoveryResult, error) {
+	if fetch == nil {
+		fetch = defaultLocationFetcher
+	}
+	data, err := fetch(location)
+	if err != nil {
+		return DiscoveryResult{}, fmt.Errorf("fetch root description %q: %w", location, err)
+	}
+	return ParseRootDevice(data, location)
+}
+
+func defaultLocationFetcher(location string) ([]byte, error) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(location)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("fetch root description failed: %s", resp.Status)
+	}
+	return data, nil
+}
+
+func parseSSDPResponse(data []byte) (string, error) {
+	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(data)))
+	statusLine, err := reader.ReadLine()
+	if err != nil {
+		return "", err
+	}
+	statusLine = strings.ToUpper(strings.TrimSpace(statusLine))
+	if !strings.HasPrefix(statusLine, "HTTP/1.1 200") && !strings.HasPrefix(statusLine, "HTTP/1.0 200") {
+		return "", fmt.Errorf("unexpected SSDP response status: %s", statusLine)
+	}
+	headers, err := reader.ReadMIMEHeader()
+	if err != nil {
+		return "", err
+	}
+	location := strings.TrimSpace(headers.Get("LOCATION"))
+	if location == "" {
+		return "", fmt.Errorf("ssdp response missing location")
+	}
+	return location, nil
+}
+
+func isTimeout(err error) bool {
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }
 
 // ParseRootDevice parses a UPnP root device description and selects the best WAN service.
@@ -50,8 +172,8 @@ func ParseRootDevice(data []byte, baseURL string) (DiscoveryResult, error) {
 
 func selectService(services []service) (service, bool) {
 	priority := map[string]int{
-		"urn:schemas-upnp-org:service:WANIPConnection:2": 3,
-		"urn:schemas-upnp-org:service:WANIPConnection:1": 2,
+		"urn:schemas-upnp-org:service:WANIPConnection:2":  3,
+		"urn:schemas-upnp-org:service:WANIPConnection:1":  2,
 		"urn:schemas-upnp-org:service:WANPPPConnection:1": 1,
 	}
 

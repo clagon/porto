@@ -1,6 +1,9 @@
 package upnp
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,32 +20,32 @@ func readTestData(t *testing.T, name string) string {
 
 func TestParseRootDevice(t *testing.T) {
 	tests := []struct {
-		name    string
-		xml     string
-		baseURL string
-		wantErr bool
-		wantURL string
+		name     string
+		xml      string
+		baseURL  string
+		wantErr  bool
+		wantURL  string
 		wantType string
 	}{
 		{
-			name:    "wanipconnection1",
-			xml:     readTestData(t, "rootdesc-wanipconnection1.xml"),
-			baseURL: "http://192.168.1.1:1900/root.xml",
-			wantURL: "http://192.168.1.1:1900/upnp/control/WANIPConn1",
+			name:     "wanipconnection1",
+			xml:      readTestData(t, "rootdesc-wanipconnection1.xml"),
+			baseURL:  "http://192.168.1.1:1900/root.xml",
+			wantURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn1",
 			wantType: "urn:schemas-upnp-org:service:WANIPConnection:1",
 		},
 		{
-			name:    "wanipconnection2 preferred over ppp",
-			xml:     readTestData(t, "rootdesc-wanipconnection2.xml"),
-			baseURL: "http://192.168.1.1:1900/root.xml",
-			wantURL: "http://192.168.1.1:1900/upnp/control/WANIPConn2",
+			name:     "wanipconnection2 preferred over ppp",
+			xml:      readTestData(t, "rootdesc-wanipconnection2.xml"),
+			baseURL:  "http://192.168.1.1:1900/root.xml",
+			wantURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 			wantType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		},
 		{
-			name:    "wanpppconnection fallback",
-			xml:     readTestData(t, "rootdesc-wanpppconnection1.xml"),
-			baseURL: "http://192.168.1.1:1900/root.xml",
-			wantURL: "http://192.168.1.1:1900/ppp/control/WANPPPConn1",
+			name:     "wanpppconnection fallback",
+			xml:      readTestData(t, "rootdesc-wanpppconnection1.xml"),
+			baseURL:  "http://192.168.1.1:1900/root.xml",
+			wantURL:  "http://192.168.1.1:1900/ppp/control/WANPPPConn1",
 			wantType: "urn:schemas-upnp-org:service:WANPPPConnection:1",
 		},
 		{
@@ -78,5 +81,27 @@ func TestParseRootDevice(t *testing.T) {
 				t.Fatalf("ServiceType = %q, want %q", got.ServiceType, tt.wantType)
 			}
 		})
+	}
+}
+
+func TestDiscoverFromLocation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, readTestData(t, "rootdesc-wanipconnection2.xml"))
+	}))
+	defer server.Close()
+
+	got, err := discoverFromLocation(server.URL, func(location string) ([]byte, error) {
+		resp, err := http.Get(location)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return io.ReadAll(resp.Body)
+	})
+	if err != nil {
+		t.Fatalf("discoverFromLocation() error = %v", err)
+	}
+	if got.ControlURL != server.URL+"/upnp/control/WANIPConn2" {
+		t.Fatalf("ControlURL = %q", got.ControlURL)
 	}
 }

@@ -6,29 +6,85 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/labstack/echo/v4"
 )
+
+// Option configures a Server instance.
+type Option func(*serverOptions)
+
+type serverOptions struct {
+	configPath        string
+	cfg               config.Config
+	discovery         DiscoveryClient
+	portMapperFactory PortMapperFactory
+}
+
+// WithConfigPath overrides the path used when saving settings.
+func WithConfigPath(path string) Option {
+	return func(opts *serverOptions) {
+		opts.configPath = path
+	}
+}
+
+// WithConfig seeds the server with an initial config snapshot.
+func WithConfig(cfg config.Config) Option {
+	return func(opts *serverOptions) {
+		opts.cfg = cfg
+	}
+}
+
+// WithDiscoveryClient injects the discovery implementation.
+func WithDiscoveryClient(client DiscoveryClient) Option {
+	return func(opts *serverOptions) {
+		opts.discovery = client
+	}
+}
+
+// WithPortMapperFactory injects the SOAP client factory.
+func WithPortMapperFactory(factory PortMapperFactory) Option {
+	return func(opts *serverOptions) {
+		opts.portMapperFactory = factory
+	}
+}
 
 // Server wraps the HTTP handler used by the application.
 type Server struct {
 	addr   string
 	echo   *echo.Echo
 	logger *slog.Logger
+	svc    *service
 }
 
 // New constructs a server bound to the provided listen address.
-func New(addr string, logger *slog.Logger) *Server {
+func New(addr string, logger *slog.Logger, options ...Option) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
+
+	opts := serverOptions{
+		cfg:        config.DefaultConfig(),
+		configPath: config.DefaultPath(),
+	}
+	for _, opt := range options {
+		opt(&opts)
+	}
+
+	svc := newService(serviceOptions{
+		configPath:        opts.configPath,
+		cfg:               opts.cfg,
+		discovery:         opts.discovery,
+		portMapperFactory: opts.portMapperFactory,
+		logger:            logger,
+	})
 
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	e.Use(loggingMiddleware(logger))
-	registerRoutes(e)
+	registerRoutes(e, svc)
 
-	return &Server{addr: addr, echo: e, logger: logger}
+	return &Server{addr: addr, echo: e, logger: logger, svc: svc}
 }
 
 // Addr returns the configured listen address.
@@ -47,6 +103,15 @@ func (s *Server) Handler() http.Handler {
 	return s.echo
 }
 
+// Discover runs router discovery and updates the in-memory state.
+func (s *Server) Discover() error {
+	if s == nil || s.svc == nil {
+		return nil
+	}
+	_, err := s.svc.discover()
+	return err
+}
+
 // ListenAndServe runs the server on its configured address.
 func (s *Server) ListenAndServe() error {
 	if s == nil || s.echo == nil {
@@ -60,7 +125,7 @@ func (s *Server) Serve(ln net.Listener) error {
 	if s == nil || s.echo == nil {
 		return nil
 	}
-	return (&http.Server{Handler: s.echo}).Serve(ln)
+	return (&http.Server{Handler: s.echo, ReadHeaderTimeout: 5 * time.Second}).Serve(ln)
 }
 
 func loggingMiddleware(logger *slog.Logger) echo.MiddlewareFunc {

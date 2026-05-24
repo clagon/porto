@@ -3,8 +3,8 @@ package server
 import "github.com/labstack/echo/v4"
 
 // registerRoutes builds the HTTP routes for the application.
-func registerRoutes(e *echo.Echo) {
-	h := newAPIHandlers()
+func registerRoutes(e *echo.Echo, svc *service) {
+	h := newAPIHandlers(svc)
 	e.GET("/api/health", h.health)
 	e.GET("/api/status", h.status)
 	e.POST("/api/discover", h.discover)
