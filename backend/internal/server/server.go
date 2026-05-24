@@ -5,20 +5,30 @@ import (
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/labstack/echo/v4"
 )
 
 // Server wraps the HTTP handler used by the application.
 type Server struct {
-	addr    string
-	handler http.Handler
-	logger  *slog.Logger
+	addr   string
+	echo   *echo.Echo
+	logger *slog.Logger
 }
 
 // New constructs a server bound to the provided listen address.
 func New(addr string, logger *slog.Logger) *Server {
-	s := &Server{addr: addr, logger: logger}
-	s.handler = NewMux()
-	return s
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+	e.Use(loggingMiddleware(logger))
+	registerRoutes(e)
+
+	return &Server{addr: addr, echo: e, logger: logger}
 }
 
 // Addr returns the configured listen address.
@@ -31,67 +41,51 @@ func (s *Server) Addr() string {
 
 // Handler returns the server's HTTP handler.
 func (s *Server) Handler() http.Handler {
-	if s == nil {
+	if s == nil || s.echo == nil {
 		return http.NewServeMux()
 	}
-	if s.handler == nil {
-		s.handler = NewMux()
-	}
-	return loggingMiddleware(s.handler, s.logger)
+	return s.echo
 }
 
 // ListenAndServe runs the server on its configured address.
 func (s *Server) ListenAndServe() error {
-	ln, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return err
+	if s == nil || s.echo == nil {
+		return nil
 	}
-	return s.Serve(ln)
+	return s.echo.Start(s.addr)
 }
 
 // Serve runs the server on the provided listener.
 func (s *Server) Serve(ln net.Listener) error {
-	return http.Serve(ln, s.Handler())
-}
-
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	status int
-	bytes  int
-}
-
-func (w *loggingResponseWriter) WriteHeader(status int) {
-	w.status = status
-	w.ResponseWriter.WriteHeader(status)
-}
-
-func (w *loggingResponseWriter) Write(p []byte) (int, error) {
-	if w.status == 0 {
-		w.status = http.StatusOK
+	if s == nil || s.echo == nil {
+		return nil
 	}
-	n, err := w.ResponseWriter.Write(p)
-	w.bytes += n
-	return n, err
+	return (&http.Server{Handler: s.echo}).Serve(ln)
 }
 
-func loggingMiddleware(next http.Handler, logger *slog.Logger) http.Handler {
+func loggingMiddleware(logger *slog.Logger) echo.MiddlewareFunc {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		started := time.Now()
-		rw := &loggingResponseWriter{ResponseWriter: w}
-		next.ServeHTTP(rw, r)
-		status := rw.status
-		if status == 0 {
-			status = http.StatusOK
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			started := time.Now()
+			err := next(c)
+			status := c.Response().Status
+			if status == 0 {
+				status = http.StatusOK
+			}
+			if err != nil && status < http.StatusBadRequest {
+				status = http.StatusInternalServerError
+			}
+			logger.Info("request",
+				"method", c.Request().Method,
+				"path", c.Request().URL.Path,
+				"status", status,
+				"bytes", c.Response().Size,
+				"duration", time.Since(started).String(),
+			)
+			return err
 		}
-		logger.Info("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", status,
-			"bytes", rw.bytes,
-			"duration", time.Since(started).String(),
-		)
-	})
+	}
 }

@@ -82,12 +82,12 @@ func TestHandlers(t *testing.T) {
 		},
 	}
 
-	mux := NewMux()
+	srv := New("127.0.0.1:8080", nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader(`{}`))
 			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, req)
+			srv.Handler().ServeHTTP(rec, req)
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
