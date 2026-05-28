@@ -11,6 +11,35 @@ import (
 	"testing"
 )
 
+func TestSSDPSearchTargets(t *testing.T) {
+	for _, want := range []string{
+		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+		"upnp:rootdevice",
+		"ssdp:all",
+	} {
+		found := false
+		for _, got := range ssdpSearchTargets {
+			if got == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("ssdpSearchTargets missing %q in %#v", want, ssdpSearchTargets)
+		}
+	}
+}
+
+func TestBuildSSDPSearchRequest(t *testing.T) {
+	msg := buildMSearch("upnp:rootdevice")
+	if !strings.Contains(msg, "ST: upnp:rootdevice") {
+		t.Fatalf("search request missing ST line: %q", msg)
+	}
+	if !strings.HasSuffix(msg, "\r\n\r\n") {
+		t.Fatalf("search request should end with CRLF CRLF: %q", msg)
+	}
+}
+
 func readTestData(t *testing.T, name string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("testdata", name))
@@ -44,11 +73,24 @@ func TestParseRootDevice(t *testing.T) {
 			wantType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		},
 		{
-			name:     "wanpppconnection fallback",
-			xml:      readTestData(t, "rootdesc-wanpppconnection1.xml"),
+			name:     "nested igd tree",
+			xml:      readTestData(t, "rootdesc-nested-igd.xml"),
 			baseURL:  "http://192.168.1.1:1900/root.xml",
-			wantURL:  "http://192.168.1.1:1900/ppp/control/WANPPPConn1",
-			wantType: "urn:schemas-upnp-org:service:WANPPPConnection:1",
+			wantURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
+			wantType: "urn:schemas-upnp-org:service:WANIPConnection:2",
+		},
+		{
+			name:     "absolute same-host control url is allowed",
+			xml:      readTestData(t, "rootdesc-absolute-controlurl.xml"),
+			baseURL:  "http://192.168.1.1:1900/root.xml",
+			wantURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
+			wantType: "urn:schemas-upnp-org:service:WANIPConnection:2",
+		},
+		{
+			name:    "absolute different-host control url is rejected",
+			xml:     readTestData(t, "rootdesc-malicious-controlurl.xml"),
+			baseURL: "http://192.168.1.1:1900/root.xml",
+			wantErr: true,
 		},
 		{
 			name: "nested wan service",

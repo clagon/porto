@@ -83,8 +83,8 @@ type discoverIPv6Interface struct {
 }
 
 var (
+	ErrNoGateway      = errors.New("no UPnP gateway discovered")
 	errOnlyWFADevices = errors.New("UPnP discovery found only WPS/WFA devices; no InternetGatewayDevice/WAN service responded")
-	errNoWANService   = errors.New("no UPnP InternetGatewayDevice/WAN service discovered")
 )
 
 // Discover sends SSDP M-SEARCH requests and returns the first supported gateway it can resolve.
@@ -136,12 +136,12 @@ func Discover() (DiscoveryResult, error) {
 	lastErr = err
 
 	if sawOnlyWFA {
-		return DiscoveryResult{}, fmt.Errorf("%w; fallback probes failed: %v", errOnlyWFADevices, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %v; fallback probes failed: %v", ErrNoGateway, errOnlyWFADevices, lastErr)
 	}
 	if lastErr != nil {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v", errNoWANService, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
 	}
-	return DiscoveryResult{}, errNoWANService
+	return DiscoveryResult{}, ErrNoGateway
 }
 
 func discoverFromInterface(iface discoverInterface) (DiscoveryResult, error) {
@@ -165,7 +165,7 @@ func discoverFromInterface(iface discoverInterface) (DiscoveryResult, error) {
 	}
 
 	if lastErr != nil {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v", errNoWANService, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
 	}
 	if len(responses) > 0 && wfaCount == len(responses) {
 		return DiscoveryResult{}, errOnlyWFADevices
@@ -199,7 +199,7 @@ func discoverFromIPv6Interface(iface discoverIPv6Interface) (DiscoveryResult, er
 	}
 
 	if lastErr != nil {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v", errNoWANService, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
 	}
 	if len(responses) > 0 && wfaCount == len(responses) {
 		return DiscoveryResult{}, errOnlyWFADevices
@@ -785,16 +785,26 @@ func resolveControlURL(baseURL, controlURL string) (string, error) {
 	if controlURL == "" {
 		return "", fmt.Errorf("empty control url")
 	}
-	if u, err := url.Parse(controlURL); err == nil && u.IsAbs() {
-		return controlURL, nil
-	}
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("parse base url %q: %w", baseURL, err)
+	}
+	if u, err := url.Parse(controlURL); err == nil && u.IsAbs() {
+		if !sameURLHost(base, u) {
+			return "", fmt.Errorf("control url host %q does not match location host %q", u.Host, base.Host)
+		}
+		return controlURL, nil
 	}
 	ref, err := url.Parse(controlURL)
 	if err != nil {
 		return "", fmt.Errorf("parse control url %q: %w", controlURL, err)
 	}
 	return base.ResolveReference(ref).String(), nil
+}
+
+func sameURLHost(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Host, b.Host)
 }
