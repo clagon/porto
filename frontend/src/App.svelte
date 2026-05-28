@@ -6,6 +6,7 @@
 
   import Dashboard from './Dashboard.svelte';
   import AddPortModal from './AddPortModal.svelte';
+  import SettingsModal from './SettingsModal.svelte';
 
   let error = '';
   let form = {
@@ -14,6 +15,7 @@
   };
 
   let isAddModalOpen = false;
+  let isSettingsModalOpen = false;
 
   async function refresh() {
     error = '';
@@ -70,6 +72,13 @@
     openPort(event.detail);
   }
 
+  async function handleSettingsSave(event) {
+    const newSettings = event.detail;
+    form = newSettings;
+    await save();
+    isSettingsModalOpen = false;
+  }
+
   onMount(refresh);
 </script>
 
@@ -87,12 +96,21 @@
   refresh={refresh}
   on:addPort={() => isAddModalOpen = true}
   on:closePort={closePort}
-  on:settings={discover}
+  on:settings={() => isSettingsModalOpen = true}
 />
 
 {#if isAddModalOpen}
   <AddPortModal
     on:close={() => isAddModalOpen = false}
     on:submit={handleAddPortSubmit}
+  />
+{/if}
+
+{#if isSettingsModalOpen}
+  <SettingsModal
+    listenAddr={form.listen_addr}
+    autoDiscover={form.auto_discover}
+    on:close={() => isSettingsModalOpen = false}
+    on:save={handleSettingsSave}
   />
 {/if}
