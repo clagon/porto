@@ -21,6 +21,7 @@
     error = '';
     busy.set(true);
     try {
+      await api.discover();
       const [nextStatus, nextSettings] = await Promise.all([api.status(), api.getSettings()]);
       status.set(nextStatus);
       settings.set(nextSettings);
@@ -43,10 +44,6 @@
     } finally {
       busy.set(false);
     }
-  }
-
-  async function discover() {
-    await runAction(() => api.discover());
   }
 
   async function openPort(portData) {
