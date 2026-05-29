@@ -6,77 +6,25 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/labstack/echo/v4"
 )
-
-// Option configures a Server instance.
-type Option func(*serverOptions)
-
-type serverOptions struct {
-	configPath        string
-	cfg               config.Config
-	discovery         DiscoveryClient
-	portMapperFactory PortMapperFactory
-}
-
-// WithConfigPath overrides the path used when saving settings.
-func WithConfigPath(path string) Option {
-	return func(opts *serverOptions) {
-		opts.configPath = path
-	}
-}
-
-// WithConfig seeds the server with an initial config snapshot.
-func WithConfig(cfg config.Config) Option {
-	return func(opts *serverOptions) {
-		opts.cfg = cfg
-	}
-}
-
-// WithDiscoveryClient injects the discovery implementation.
-func WithDiscoveryClient(client DiscoveryClient) Option {
-	return func(opts *serverOptions) {
-		opts.discovery = client
-	}
-}
-
-// WithPortMapperFactory injects the SOAP client factory.
-func WithPortMapperFactory(factory PortMapperFactory) Option {
-	return func(opts *serverOptions) {
-		opts.portMapperFactory = factory
-	}
-}
 
 // Server wraps the HTTP handler used by the application.
 type Server struct {
 	addr   string
 	echo   *echo.Echo
 	logger *slog.Logger
-	svc    *service
+	svc    ApplicationService
 }
 
 // New constructs a server bound to the provided listen address.
-func New(addr string, logger *slog.Logger, options ...Option) *Server {
+func New(addr string, logger *slog.Logger, svc ApplicationService) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
-
-	opts := serverOptions{
-		cfg:        config.DefaultConfig(),
-		configPath: config.DefaultPath(),
+	if svc == nil {
+		svc = NewService(ServiceOptions{Logger: logger})
 	}
-	for _, opt := range options {
-		opt(&opts)
-	}
-
-	svc := newService(serviceOptions{
-		configPath:        opts.configPath,
-		cfg:               opts.cfg,
-		discovery:         opts.discovery,
-		portMapperFactory: opts.portMapperFactory,
-		logger:            logger,
-	})
 
 	e := echo.New()
 	e.HideBanner = true
@@ -108,7 +56,7 @@ func (s *Server) Discover() error {
 	if s == nil || s.svc == nil {
 		return nil
 	}
-	_, err := s.svc.discover()
+	_, err := s.svc.Discover()
 	return err
 }
 

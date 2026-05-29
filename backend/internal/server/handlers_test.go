@@ -36,12 +36,12 @@ type deleteCall struct {
 }
 
 type fakeMapper struct {
-	mu         sync.Mutex
+	mu          sync.Mutex
 	externalIP  string
 	externalErr error
-	addErr     error
-	deleteErr  error
-	addCalls   []upnp.PortMapping
+	addErr      error
+	deleteErr   error
+	addCalls    []upnp.PortMapping
 	deleteCalls []deleteCall
 }
 
@@ -78,12 +78,16 @@ func (f *fakeMapper) GetGenericPortMappingEntry(index int) (upnp.PortMapping, er
 func newTestServer(t *testing.T, cfgPath string, cfg config.Config, discovery DiscoveryClient, mapper *fakeMapper) *Server {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	return New("127.0.0.1:8080", logger,
-		WithConfigPath(cfgPath),
-		WithConfig(cfg),
-		WithDiscoveryClient(discovery),
-		WithPortMapperFactory(func(upnp.DiscoveryResult) PortMapper { return mapper }),
-	)
+	svc := NewService(ServiceOptions{
+		ConfigPath: cfgPath,
+		Config:     cfg,
+		Discovery:  discovery,
+		PortMapperFactory: func(upnp.DiscoveryResult) PortMapper {
+			return mapper
+		},
+		Logger: logger,
+	})
+	return New("127.0.0.1:8080", logger, svc)
 }
 
 func decodeJSON[T any](t *testing.T, body *bytes.Buffer, dst *T) {
@@ -228,7 +232,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 	t.Run("discover synchronizes active ports from router", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "config2.json")
-		
+
 		// 自身のローカルIPを一時的に特定
 		var tempLocalIP string
 		if conn, err := net.Dial("udp", "192.168.1.1:1900"); err == nil {
@@ -374,7 +378,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 		if len(got.Ports) != 2 {
 			t.Fatalf("ports = %d, want 2", len(got.Ports))
 		}
-		
+
 		// 追加されたポート (external_port: 9090) の InternalIP が空ではなくなっていることを確認
 		found := false
 		for _, p := range got.Ports {

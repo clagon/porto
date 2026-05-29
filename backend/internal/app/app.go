@@ -64,14 +64,15 @@ func New(opts AppOptions) (*App, error) {
 		logger = slog.Default()
 	}
 
+	svc := server.NewService(server.ServiceOptions{
+		ConfigPath: configPath,
+		Config:     cfg,
+		Logger:     logger,
+	})
+
 	return &App{
-		cfg: cfg,
-		server: server.New(
-			cfg.ListenAddr,
-			logger,
-			server.WithConfigPath(configPath),
-			server.WithConfig(cfg),
-		),
+		cfg:           cfg,
+		server:        server.New(cfg.ListenAddr, logger, svc),
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,
 		browserOpener: opts.BrowserOpener,
