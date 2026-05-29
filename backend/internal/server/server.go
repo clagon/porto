@@ -14,16 +14,12 @@ type Server struct {
 	addr   string
 	echo   *echo.Echo
 	logger *slog.Logger
-	svc    ApplicationService
 }
 
 // New constructs a server bound to the provided listen address.
-func New(addr string, logger *slog.Logger, svc ApplicationService) *Server {
+func New(addr string, logger *slog.Logger, svc apiService) *Server {
 	if logger == nil {
 		logger = slog.Default()
-	}
-	if svc == nil {
-		svc = NewService(ServiceOptions{Logger: logger})
 	}
 
 	e := echo.New()
@@ -32,7 +28,7 @@ func New(addr string, logger *slog.Logger, svc ApplicationService) *Server {
 	e.Use(loggingMiddleware(logger))
 	registerRoutes(e, svc)
 
-	return &Server{addr: addr, echo: e, logger: logger, svc: svc}
+	return &Server{addr: addr, echo: e, logger: logger}
 }
 
 // Addr returns the configured listen address.
@@ -49,15 +45,6 @@ func (s *Server) Handler() http.Handler {
 		return http.NewServeMux()
 	}
 	return s.echo
-}
-
-// Discover runs router discovery and updates the in-memory state.
-func (s *Server) Discover() error {
-	if s == nil || s.svc == nil {
-		return nil
-	}
-	_, err := s.svc.Discover()
-	return err
 }
 
 // ListenAndServe runs the server on its configured address.
