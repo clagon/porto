@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/labstack/echo/v4"
 )
 
+<<<<<<< HEAD
 // Option configures a Server instance.
 type Option func(*serverOptions)
 
@@ -56,20 +56,22 @@ func WithPortMapperFactory(factory PortMapperFactory) Option {
 	}
 }
 
+=======
+>>>>>>> main
 // Server wraps the HTTP handler used by the application.
 type Server struct {
 	addr   string
 	echo   *echo.Echo
 	logger *slog.Logger
-	svc    *service
 }
 
 // New constructs a server bound to the provided listen address.
-func New(addr string, logger *slog.Logger, options ...Option) *Server {
+func New(addr string, logger *slog.Logger, svc apiService) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
 
+<<<<<<< HEAD
 	opts := serverOptions{
 		cfg:        config.DefaultConfig(),
 		configPath: config.DefaultPath(),
@@ -87,13 +89,15 @@ func New(addr string, logger *slog.Logger, options ...Option) *Server {
 		logger:            logger,
 	})
 
+=======
+>>>>>>> main
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	e.Use(loggingMiddleware(logger))
 	registerRoutes(e, svc)
 
-	return &Server{addr: addr, echo: e, logger: logger, svc: svc}
+	return &Server{addr: addr, echo: e, logger: logger}
 }
 
 // Addr returns the configured listen address.
@@ -110,15 +114,6 @@ func (s *Server) Handler() http.Handler {
 		return http.NewServeMux()
 	}
 	return s.echo
-}
-
-// Discover runs router discovery and updates the in-memory state.
-func (s *Server) Discover() error {
-	if s == nil || s.svc == nil {
-		return nil
-	}
-	_, err := s.svc.discover()
-	return err
 }
 
 // ListenAndServe runs the server on its configured address.
