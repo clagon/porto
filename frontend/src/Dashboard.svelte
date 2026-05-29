@@ -36,8 +36,8 @@
   <!-- Header -->
   <header class="flex justify-between items-end mb-4">
     <div>
-      <h1 class="font-display-lg text-display-lg text-text-main mb-2">おはようございます</h1>
-      <p class="font-body-md text-text-muted">ネットワークは現在安全で、最適化されています。</p>
+      <h1 class="font-display-lg text-display-lg text-text-main mb-2">ポートマッピングの管理</h1>
+      <p class="font-body-md text-text-muted">UPnPを利用してPCのポートを一時的に開放し、ゲームやアプリを外部と安全に共有します。</p>
     </div>
     <button 
       class="bg-surface-container-low text-primary px-4 py-2 rounded-full font-label-sm hover:bg-surface-container transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" 
