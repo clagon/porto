@@ -56,14 +56,14 @@ func (c *SOAPClient) AddPortMapping(m PortMapping) error {
 		return err
 	}
 	_, err := c.call("AddPortMapping", map[string]string{
-		"NewRemoteHost":            "",
-		"NewExternalPort":          fmt.Sprintf("%d", m.ExternalPort),
-		"NewProtocol":              strings.ToUpper(strings.TrimSpace(m.Protocol)),
-		"NewInternalPort":          fmt.Sprintf("%d", m.InternalPort),
-		"NewInternalClient":        m.InternalIP,
-		"NewEnabled":               "1",
+		"NewRemoteHost":             "",
+		"NewExternalPort":           fmt.Sprintf("%d", m.ExternalPort),
+		"NewProtocol":               strings.ToUpper(strings.TrimSpace(m.Protocol)),
+		"NewInternalPort":           fmt.Sprintf("%d", m.InternalPort),
+		"NewInternalClient":         m.InternalIP,
+		"NewEnabled":                "1",
 		"NewPortMappingDescription": m.Description,
-		"NewLeaseDuration":         fmt.Sprintf("%d", m.LeaseDurationSeconds),
+		"NewLeaseDuration":          fmt.Sprintf("%d", m.LeaseDurationSeconds),
 	})
 	return err
 }

@@ -14,18 +14,18 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/clagon/port-mapper/backend/internal/application"
 	"github.com/clagon/port-mapper/backend/internal/config"
-	"github.com/clagon/port-mapper/backend/internal/upnp"
 	"github.com/labstack/echo/v4"
 )
 
 type fakeDiscovery struct {
-	result upnp.DiscoveryResult
+	result application.DiscoveryResult
 	err    error
 	calls  int
 }
 
-func (f *fakeDiscovery) Discover() (upnp.DiscoveryResult, error) {
+func (f *fakeDiscovery) Discover() (application.DiscoveryResult, error) {
 	f.calls++
 	return f.result, f.err
 }
@@ -36,12 +36,12 @@ type deleteCall struct {
 }
 
 type fakeMapper struct {
-	mu         sync.Mutex
+	mu          sync.Mutex
 	externalIP  string
 	externalErr error
-	addErr     error
-	deleteErr  error
-	addCalls   []upnp.PortMapping
+	addErr      error
+	deleteErr   error
+	addCalls    []application.PortMapping
 	deleteCalls []deleteCall
 }
 
@@ -52,7 +52,7 @@ func (f *fakeMapper) GetExternalIPAddress() (string, error) {
 	return f.externalIP, nil
 }
 
-func (f *fakeMapper) AddPortMapping(m upnp.PortMapping) error {
+func (f *fakeMapper) AddPortMapping(m application.PortMapping) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.addCalls = append(f.addCalls, m)
@@ -66,11 +66,11 @@ func (f *fakeMapper) DeletePortMapping(protocol string, externalPort int) error 
 	return f.deleteErr
 }
 
-func (f *fakeMapper) GetGenericPortMappingEntry(index int) (upnp.PortMapping, error) {
+func (f *fakeMapper) GetGenericPortMappingEntry(index int) (application.PortMapping, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if index < 0 || index >= len(f.addCalls) {
-		return upnp.PortMapping{}, fmt.Errorf("no such entry")
+		return application.PortMapping{}, fmt.Errorf("no such entry")
 	}
 	return f.addCalls[index], nil
 }
@@ -82,7 +82,7 @@ func newTestServer(t *testing.T, cfgPath string, cfg config.Config, discovery Di
 		WithConfigPath(cfgPath),
 		WithConfig(cfg),
 		WithDiscoveryClient(discovery),
-		WithPortMapperFactory(func(upnp.DiscoveryResult) PortMapper { return mapper }),
+		WithPortMapperFactory(func(application.DiscoveryResult) PortMapper { return mapper }),
 	)
 }
 
@@ -164,7 +164,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "config.json")
 	discovery := &fakeDiscovery{
-		result: upnp.DiscoveryResult{
+		result: application.DiscoveryResult{
 			ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 			ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 		},
@@ -172,7 +172,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 	mapper := &fakeMapper{externalIP: "203.0.113.42"}
 	srv := newTestServer(t, cfgPath, config.DefaultConfig(), discovery, mapper)
 
-	mapping := upnp.PortMapping{
+	mapping := application.PortMapping{
 		Protocol:             "TCP",
 		ExternalPort:         8080,
 		InternalIP:           "192.168.1.20",
@@ -228,7 +228,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 	t.Run("discover synchronizes active ports from router", func(t *testing.T) {
 		dir := t.TempDir()
 		cfgPath := filepath.Join(dir, "config2.json")
-		
+
 		// 自身のローカルIPを一時的に特定
 		var tempLocalIP string
 		if conn, err := net.Dial("udp", "192.168.1.1:1900"); err == nil {
@@ -269,7 +269,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 		}
 
 		syncDiscovery := &fakeDiscovery{
-			result: upnp.DiscoveryResult{
+			result: application.DiscoveryResult{
 				ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 				ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 			},
@@ -277,7 +277,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 
 		syncMapper := &fakeMapper{
 			externalIP: "203.0.113.42",
-			addCalls: []upnp.PortMapping{
+			addCalls: []application.PortMapping{
 				{
 					Protocol:             "TCP",
 					ExternalPort:         7777,
@@ -323,7 +323,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 	})
 
 	t.Run("discover timeout is soft failure", func(t *testing.T) {
-		timeoutDiscovery := &fakeDiscovery{err: upnp.ErrNoGateway}
+		timeoutDiscovery := &fakeDiscovery{err: application.ErrNoGateway}
 		timeoutSrv := newTestServer(t, cfgPath, config.DefaultConfig(), timeoutDiscovery, &fakeMapper{})
 		req := httptest.NewRequest(http.MethodPost, "/api/discover", nil)
 		rec := httptest.NewRecorder()
@@ -374,7 +374,7 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 		if len(got.Ports) != 2 {
 			t.Fatalf("ports = %d, want 2", len(got.Ports))
 		}
-		
+
 		// 追加されたポート (external_port: 9090) の InternalIP が空ではなくなっていることを確認
 		found := false
 		for _, p := range got.Ports {

@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/clagon/port-mapper/backend/internal/application"
 	"github.com/clagon/port-mapper/backend/internal/config"
-	"github.com/clagon/port-mapper/backend/internal/upnp"
 	"github.com/labstack/echo/v4"
 )
 
@@ -36,7 +36,7 @@ func (h *apiHandlers) discover(c echo.Context) error {
 }
 
 func (h *apiHandlers) portsOpen(c echo.Context) error {
-	var req upnp.PortMapping
+	var req application.PortMapping
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -48,7 +48,7 @@ func (h *apiHandlers) portsOpen(c echo.Context) error {
 }
 
 func (h *apiHandlers) portsClose(c echo.Context) error {
-	var req upnp.PortMapping
+	var req application.PortMapping
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}

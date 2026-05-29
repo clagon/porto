@@ -9,6 +9,7 @@ import (
 
 	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/clagon/port-mapper/backend/internal/server"
+	"github.com/clagon/port-mapper/backend/internal/upnp"
 )
 
 const defaultListenAddr = "127.0.0.1:8080"
@@ -71,6 +72,8 @@ func New(opts AppOptions) (*App, error) {
 			logger,
 			server.WithConfigPath(configPath),
 			server.WithConfig(cfg),
+			server.WithDiscoveryClient(upnp.NewDiscoveryClient()),
+			server.WithPortMapperFactory(upnp.NewSOAPPortMapper),
 		),
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,

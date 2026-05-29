@@ -1,19 +1,11 @@
 package upnp
 
-// PortMapping represents a single port forwarding request.
-type PortMapping struct {
-	Protocol             string `json:"protocol"`
-	ExternalPort         int    `json:"external_port"`
-	InternalIP           string `json:"internal_ip"`
-	InternalPort         int    `json:"internal_port"`
-	Description          string `json:"description"`
-	LeaseDurationSeconds int    `json:"lease_duration_seconds"`
-}
+import "github.com/clagon/port-mapper/backend/internal/application"
 
-const MaxLeaseDurationSeconds = 7 * 24 * 60 * 60
+// PortMapping represents a single port forwarding request.
+type PortMapping = application.PortMapping
+
+const MaxLeaseDurationSeconds = application.MaxLeaseDurationSeconds
 
 // DiscoveryResult is the selected UPnP control endpoint discovered from a root description.
-type DiscoveryResult struct {
-	ServiceType string
-	ControlURL  string
-}
+type DiscoveryResult = application.DiscoveryResult
