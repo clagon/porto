@@ -9,55 +9,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-<<<<<<< HEAD
-// Option configures a Server instance.
-type Option func(*serverOptions)
-
-type serverOptions struct {
-	configPath        string
-	cfg               config.Config
-	settingsStore     SettingsStore
-	discovery         DiscoveryClient
-	portMapperFactory PortMapperFactory
-}
-
-// WithConfigPath overrides the path used when saving settings.
-func WithConfigPath(path string) Option {
-	return func(opts *serverOptions) {
-		opts.configPath = path
-	}
-}
-
-// WithConfig seeds the server with an initial config snapshot.
-func WithConfig(cfg config.Config) Option {
-	return func(opts *serverOptions) {
-		opts.cfg = cfg
-	}
-}
-
-// WithSettingsStore injects the settings persistence implementation.
-func WithSettingsStore(store SettingsStore) Option {
-	return func(opts *serverOptions) {
-		opts.settingsStore = store
-	}
-}
-
-// WithDiscoveryClient injects the discovery implementation.
-func WithDiscoveryClient(client DiscoveryClient) Option {
-	return func(opts *serverOptions) {
-		opts.discovery = client
-	}
-}
-
-// WithPortMapperFactory injects the SOAP client factory.
-func WithPortMapperFactory(factory PortMapperFactory) Option {
-	return func(opts *serverOptions) {
-		opts.portMapperFactory = factory
-	}
-}
-
-=======
->>>>>>> main
 // Server wraps the HTTP handler used by the application.
 type Server struct {
 	addr   string
@@ -71,26 +22,6 @@ func New(addr string, logger *slog.Logger, svc apiService) *Server {
 		logger = slog.Default()
 	}
 
-<<<<<<< HEAD
-	opts := serverOptions{
-		cfg:        config.DefaultConfig(),
-		configPath: config.DefaultPath(),
-	}
-	for _, opt := range options {
-		opt(&opts)
-	}
-
-	svc := newService(serviceOptions{
-		configPath:        opts.configPath,
-		cfg:               opts.cfg,
-		settingsStore:     opts.settingsStore,
-		discovery:         opts.discovery,
-		portMapperFactory: opts.portMapperFactory,
-		logger:            logger,
-	})
-
-=======
->>>>>>> main
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true

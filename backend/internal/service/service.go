@@ -28,20 +28,11 @@ type portMapper interface {
 
 type portMapperFactory func(upnp.DiscoveryResult) portMapper
 
-<<<<<<< HEAD:backend/internal/server/service.go
 // SettingsStore persists user-editable settings.
 type SettingsStore interface {
 	Save(config.Config) error
 }
 
-type serviceOptions struct {
-	configPath        string
-	cfg               config.Config
-	settingsStore     SettingsStore
-	discovery         DiscoveryClient
-	portMapperFactory PortMapperFactory
-	logger            *slog.Logger
-=======
 // Status describes the current discovery and mapping state.
 type Status struct {
 	Discovered  bool               `json:"discovered"`
@@ -50,13 +41,13 @@ type Status struct {
 	ExternalIP  string             `json:"external_ip,omitempty"`
 	LocalIP     string             `json:"local_ip,omitempty"`
 	Ports       []upnp.PortMapping `json:"ports"`
->>>>>>> main:backend/internal/service/service.go
 }
 
 type Options struct {
-	ConfigPath string
-	Config     config.Config
-	Logger     *slog.Logger
+	ConfigPath    string
+	Config        config.Config
+	Logger        *slog.Logger
+	SettingsStore SettingsStore
 
 	discovery         discoveryClient
 	portMapperFactory portMapperFactory
@@ -66,14 +57,9 @@ type Service struct {
 	mu                sync.RWMutex
 	cfg               config.Config
 	configPath        string
-<<<<<<< HEAD:backend/internal/server/service.go
 	settingsStore     SettingsStore
-	discovery         DiscoveryClient
-	portMapperFactory PortMapperFactory
-=======
 	discovery         discoveryClient
 	portMapperFactory portMapperFactory
->>>>>>> main:backend/internal/service/service.go
 	gateway           *upnp.DiscoveryResult
 	externalIP        string
 	localIP           string
@@ -93,8 +79,8 @@ func New(opts Options) *Service {
 	if opts.ConfigPath == "" {
 		opts.ConfigPath = config.DefaultPath()
 	}
-	if opts.settingsStore == nil {
-		opts.settingsStore = config.FileStore{Path: opts.configPath}
+	if opts.SettingsStore == nil {
+		opts.SettingsStore = config.FileStore{Path: opts.ConfigPath}
 	}
 	if opts.discovery == nil {
 		opts.discovery = defaultDiscoveryClient{}
@@ -104,12 +90,8 @@ func New(opts Options) *Service {
 	}
 	return &Service{
 		cfg:               cfg,
-<<<<<<< HEAD:backend/internal/server/service.go
-		configPath:        opts.configPath,
-		settingsStore:     opts.settingsStore,
-=======
 		configPath:        opts.ConfigPath,
->>>>>>> main:backend/internal/service/service.go
+		settingsStore:     opts.SettingsStore,
 		discovery:         opts.discovery,
 		portMapperFactory: opts.portMapperFactory,
 		logger:            logger,

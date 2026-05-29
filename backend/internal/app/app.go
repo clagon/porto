@@ -68,26 +68,16 @@ func New(opts AppOptions) (*App, error) {
 	}
 
 	svc := service.New(service.Options{
-		ConfigPath: configPath,
-		Config:     cfg,
-		Logger:     logger,
+		ConfigPath:    configPath,
+		Config:        cfg,
+		Logger:        logger,
+		SettingsStore: settingsStore,
 	})
 
 	return &App{
-<<<<<<< HEAD
-		cfg: cfg,
-		server: server.New(
-			cfg.ListenAddr,
-			logger,
-			server.WithConfigPath(configPath),
-			server.WithConfig(cfg),
-			server.WithSettingsStore(settingsStore),
-		),
-=======
 		cfg:           cfg,
 		server:        server.New(cfg.ListenAddr, logger, svc),
 		service:       svc,
->>>>>>> main
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,
 		browserOpener: opts.BrowserOpener,
