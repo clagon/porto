@@ -4,6 +4,10 @@
   import { busy, settings, status } from './lib/stores';
   import { validateCloseMapping, validatePortMapping, validateSettings } from './lib/validate';
 
+  import Dashboard from './Dashboard.svelte';
+  import AddPortModal from './AddPortModal.svelte';
+  import SettingsModal from './SettingsModal.svelte';
+
   let error = '';
   let form = {
     listen_addr: '127.0.0.1:8080',
@@ -18,9 +22,8 @@
     lease_duration_seconds: 3600,
   };
 
-  function getPortCount() {
-    return Array.isArray($status?.ports) ? $status.ports.length : 0;
-  }
+  let isAddModalOpen = false;
+  let isSettingsModalOpen = false;
 
   function describeMapping(port) {
     return `${String(port.protocol || '').toUpperCase()} ${port.external_port} → ${port.internal_ip}:${port.internal_port}`;
@@ -30,6 +33,7 @@
     error = '';
     busy.set(true);
     try {
+      await api.discover();
       const [nextStatus, nextSettings] = await Promise.all([api.status(), api.getSettings()]);
       status.set(nextStatus);
       settings.set(nextSettings);
@@ -93,21 +97,36 @@
     await runAction(() => api.saveSettings(form));
   }
 
+  function handleAddPortSubmit(event) {
+    openPort(event.detail);
+  }
+
+  async function handleSettingsSave(event) {
+    const newSettings = event.detail;
+    form = newSettings;
+    await save();
+    isSettingsModalOpen = false;
+  }
+
   onMount(refresh);
 </script>
 
-<main class="shell">
-  <section class="panel hero">
-    <div class="hero-copy">
-      <p class="eyebrow">Local-only UPnP helper</p>
-      <h1>port-mapper</h1>
-      <p class="lede">Open and close router port mappings from a localhost-only UI. Configuration is saved next to the binary.</p>
+{#if error}
+  <div class="fixed top-4 left-1/2 -translate-x-1/2 bg-error text-on-error px-6 py-3 rounded-xl shadow-ambient-hover z-[200] max-w-md w-full text-center font-body-md" role="alert">
+    {error}
+    <button class="absolute top-1/2 right-4 -translate-y-1/2 text-on-error opacity-80 hover:opacity-100" on:click={() => error = ''}>
+      <span class="material-symbols-outlined text-sm">close</span>
+    </button>
+  </div>
+{/if}
 
-      {#if error}
-        <div class="alert" role="alert">
-          {error}
-        </div>
-      {/if}
+<Dashboard
+  status={$status}
+  refresh={refresh}
+  on:addPort={() => isAddModalOpen = true}
+  on:closePort={closePort}
+  on:settings={() => isSettingsModalOpen = true}
+/>
 
       <div class="actions">
         <button class="secondary" on:click={refresh} disabled={$busy}>Reload status</button>
