@@ -34,10 +34,10 @@
     }
   }
 
-  async function runAction(action) {
+  async function runAction(action, message = '処理を実行中...') {
     error = '';
     busy.set(true);
-    blocking.set(true);
+    blocking.set(message);
     try {
       await action();
       await refresh();
@@ -58,13 +58,13 @@
       description: portData.appName,
       lease_duration_seconds: 0
     };
-    await runAction(() => api.openPort(mapping));
+    await runAction(() => api.openPort(mapping), 'ポートを開放しています...');
     isAddModalOpen = false;
   }
 
   async function closePort(event) {
     const port = event.detail;
-    await runAction(() => api.closePort({ external_port: port.external_port, protocol: port.protocol }));
+    await runAction(() => api.closePort({ external_port: port.external_port, protocol: port.protocol }), 'ポートを閉鎖しています...');
   }
 
   async function save() {
@@ -73,7 +73,7 @@
       error = errors.join(', ');
       return;
     }
-    await runAction(() => api.saveSettings(form));
+    await runAction(() => api.saveSettings(form), '設定を保存しています...');
   }
 
   function handleAddPortSubmit(event) {
@@ -136,7 +136,7 @@
       <div class="absolute inset-0 rounded-full border-4 border-t-primary border-r-primary border-b-transparent border-l-transparent animate-spin"></div>
     </div>
     <div class="text-center space-y-2">
-      <h3 class="font-headline-sm text-headline-sm text-text-main animate-pulse">処理を実行中...</h3>
+      <h3 class="font-headline-sm text-headline-sm text-text-main animate-pulse">{$blocking}</h3>
       <p class="font-label-sm text-label-sm text-text-muted">ネットワークの設定を更新しています。少々お待ちください。</p>
     </div>
   </div>
