@@ -26,7 +26,11 @@ export function parseError(error: string): FriendlyError {
   }
 
   // 2. ポート競合 (SOAP 718: ConflictInMappingEntry)
-  if (errStr.includes('ConflictInMappingEntry') || errStr.includes('718')) {
+  if (
+    errStr.includes('ConflictInMappingEntry') ||
+    errStr.includes('718') ||
+    errStr.toLowerCase().includes('conflict')
+  ) {
     return {
       title: '指定されたポートはすでに使用されています',
       message: '設定しようとしたポート番号は、すでに他の機器や別のアプリケーションに使用されています。別のポート番号を指定してください。',
