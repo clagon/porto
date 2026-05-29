@@ -5,7 +5,7 @@
 [![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8.svg?style=flat&logo=go)](https://go.dev)
 [![Node Version](https://img.shields.io/badge/Node-18%2B-339933.svg?style=flat&logo=node.js)](https://nodejs.org)
 
-**Porto** は、Linux、macOS、Windows 向けに設計された、高品質で非常にシンプルかつ安全なローカル UPnP ポート開放ツールです。
+**Porto** (pronounced: `/ˈpɔːr.toʊ/` 📣) は、Linux、macOS、Windows 向けに設計された、高品質で非常にシンプルかつ安全なローカル UPnP ポート開放ツールです。
 
 ルーターのポートを一時的に開放するための美しく直感的なインターフェースを提供し、Minecraft などのゲームサーバーに友達を招待したり、ローカルの Web アプリを数秒で共有したりできるようにします。
 
