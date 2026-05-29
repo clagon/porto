@@ -16,6 +16,7 @@ type Option func(*serverOptions)
 type serverOptions struct {
 	configPath        string
 	cfg               config.Config
+	settingsStore     SettingsStore
 	discovery         DiscoveryClient
 	portMapperFactory PortMapperFactory
 }
@@ -31,6 +32,13 @@ func WithConfigPath(path string) Option {
 func WithConfig(cfg config.Config) Option {
 	return func(opts *serverOptions) {
 		opts.cfg = cfg
+	}
+}
+
+// WithSettingsStore injects the settings persistence implementation.
+func WithSettingsStore(store SettingsStore) Option {
+	return func(opts *serverOptions) {
+		opts.settingsStore = store
 	}
 }
 
@@ -73,6 +81,7 @@ func New(addr string, logger *slog.Logger, options ...Option) *Server {
 	svc := newService(serviceOptions{
 		configPath:        opts.configPath,
 		cfg:               opts.cfg,
+		settingsStore:     opts.settingsStore,
 		discovery:         opts.discovery,
 		portMapperFactory: opts.portMapperFactory,
 		logger:            logger,

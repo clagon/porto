@@ -44,7 +44,8 @@ func New(opts AppOptions) (*App, error) {
 		configPath = config.DefaultPath()
 	}
 
-	cfg, err := config.Load(configPath)
+	settingsStore := config.FileStore{Path: configPath}
+	cfg, err := settingsStore.Load()
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +72,7 @@ func New(opts AppOptions) (*App, error) {
 			logger,
 			server.WithConfigPath(configPath),
 			server.WithConfig(cfg),
+			server.WithSettingsStore(settingsStore),
 		),
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,

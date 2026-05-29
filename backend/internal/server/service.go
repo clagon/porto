@@ -28,9 +28,15 @@ type PortMapper interface {
 
 type PortMapperFactory func(upnp.DiscoveryResult) PortMapper
 
+// SettingsStore persists user-editable settings.
+type SettingsStore interface {
+	Save(config.Config) error
+}
+
 type serviceOptions struct {
 	configPath        string
 	cfg               config.Config
+	settingsStore     SettingsStore
 	discovery         DiscoveryClient
 	portMapperFactory PortMapperFactory
 	logger            *slog.Logger
@@ -40,6 +46,7 @@ type service struct {
 	mu                sync.RWMutex
 	cfg               config.Config
 	configPath        string
+	settingsStore     SettingsStore
 	discovery         DiscoveryClient
 	portMapperFactory PortMapperFactory
 	gateway           *upnp.DiscoveryResult
@@ -61,6 +68,9 @@ func newService(opts serviceOptions) *service {
 	if opts.configPath == "" {
 		opts.configPath = config.DefaultPath()
 	}
+	if opts.settingsStore == nil {
+		opts.settingsStore = config.FileStore{Path: opts.configPath}
+	}
 	if opts.discovery == nil {
 		opts.discovery = defaultDiscoveryClient{}
 	}
@@ -70,6 +80,7 @@ func newService(opts serviceOptions) *service {
 	return &service{
 		cfg:               cfg,
 		configPath:        opts.configPath,
+		settingsStore:     opts.settingsStore,
 		discovery:         opts.discovery,
 		portMapperFactory: opts.portMapperFactory,
 		logger:            logger,
@@ -101,7 +112,7 @@ func (s *service) updateSettings(next config.Config) (config.Config, error) {
 	if err := config.ValidateLocalListenAddr(next.ListenAddr); err != nil {
 		return config.Config{}, err
 	}
-	if err := config.Save(s.configPath, next); err != nil {
+	if err := s.settingsStore.Save(next); err != nil {
 		return config.Config{}, err
 	}
 
@@ -422,4 +433,3 @@ func (s *service) syncActivePorts(mapper PortMapper, localIP string) {
 	}
 	s.mu.Unlock()
 }
-
