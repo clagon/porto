@@ -31,7 +31,7 @@ func (h *apiHandlers) health(c echo.Context) error {
 }
 
 func (h *apiHandlers) status(c echo.Context) error {
-	return c.JSON(http.StatusOK, h.svc.Status())
+	return c.JSON(http.StatusOK, newStatusResponse(h.svc.Status()))
 }
 
 func (h *apiHandlers) discover(c echo.Context) error {
@@ -39,31 +39,31 @@ func (h *apiHandlers) discover(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadGateway, err.Error())
 	}
-	return c.JSON(http.StatusAccepted, status)
+	return c.JSON(http.StatusAccepted, newStatusResponse(status))
 }
 
 func (h *apiHandlers) portsOpen(c echo.Context) error {
-	var req upnp.PortMapping
+	var req PortMappingRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	status, err := h.svc.OpenPort(req)
+	status, err := h.svc.OpenPort(req.toPortMapping())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	return c.JSON(http.StatusAccepted, status)
+	return c.JSON(http.StatusAccepted, newStatusResponse(status))
 }
 
 func (h *apiHandlers) portsClose(c echo.Context) error {
-	var req upnp.PortMapping
+	var req ClosePortRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	status, err := h.svc.ClosePort(req)
+	status, err := h.svc.ClosePort(req.toPortMapping())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	return c.JSON(http.StatusAccepted, status)
+	return c.JSON(http.StatusAccepted, newStatusResponse(status))
 }
 
 func (h *apiHandlers) getSettings(c echo.Context) error {
