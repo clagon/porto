@@ -12,17 +12,35 @@ A small local UPnP port-mapping tool for Linux, macOS, and Windows.
 
 ## Quick start
 
+Requires Go 1.23 or newer. Building the embedded UI also requires Node.js and npm.
+
+Build the frontend into the backend embed directory:
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+The frontend build output is generated under `backend/assets/static/` and is intentionally ignored by Git. Only `.gitkeep` is tracked so a clean checkout still has a valid embed directory.
+
 ```bash
 cd backend
 go run ./cmd/port-mapper
 ```
 
+Useful flags:
+
+- `--listen-addr 127.0.0.1:9090` to use a different local port
+- `--config /path/to/config.json` to point at another config file beside the binary
+- `--no-browser` to keep the UI closed at startup
+
 The app will:
 
-- load `config.json` from the same directory as the executable
+- load `config.json` from the same directory as the executable unless `--config` is set
 - fall back to safe defaults when the file is missing
-- bind only to `127.0.0.1`
-- try to open your browser automatically using the platform default browser launcher
+- bind only to `127.0.0.1` by default
+- try to open your browser automatically unless `--no-browser` is used
 
 If the browser does not open, visit:
 

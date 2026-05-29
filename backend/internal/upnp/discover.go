@@ -1,90 +1,109 @@
 package upnp
 
 import (
-	"encoding/xml"
+	"errors"
 	"fmt"
-	"net/url"
-	"strings"
 )
 
-type rootDevice struct {
-	XMLName xml.Name `xml:"root"`
-	Device  device   `xml:"device"`
-}
+var (
+	ErrNoGateway      = errors.New("no UPnP gateway discovered")
+	errOnlyWFADevices = errors.New("UPnP discovery found only WPS/WFA devices; no InternetGatewayDevice/WAN service responded")
+)
 
-type device struct {
-	ServiceList serviceList `xml:"serviceList"`
-}
-
-type serviceList struct {
-	Services []service `xml:"service"`
-}
-
-type service struct {
-	ServiceType string `xml:"serviceType"`
-	ControlURL  string `xml:"controlURL"`
-}
-
-// ParseRootDevice parses a UPnP root device description and selects the best WAN service.
-func ParseRootDevice(data []byte, baseURL string) (DiscoveryResult, error) {
-	var root rootDevice
-	if err := xml.Unmarshal(data, &root); err != nil {
-		return DiscoveryResult{}, fmt.Errorf("parse root device xml: %w", err)
-	}
-
-	selected, ok := selectService(root.Device.ServiceList.Services)
-	if !ok {
-		return DiscoveryResult{}, fmt.Errorf("no supported WAN service found")
-	}
-
-	resolved, err := resolveControlURL(baseURL, selected.ControlURL)
+// Discover sends SSDP M-SEARCH requests and returns the first supported gateway it can resolve.
+func Discover() (DiscoveryResult, error) {
+	ifaces, err := discoverInterfaces()
 	if err != nil {
 		return DiscoveryResult{}, err
 	}
 
-	return DiscoveryResult{
-		ServiceType: strings.TrimSpace(selected.ServiceType),
-		ControlURL:  resolved,
-	}, nil
-}
-
-func selectService(services []service) (service, bool) {
-	priority := map[string]int{
-		"urn:schemas-upnp-org:service:WANIPConnection:2": 3,
-		"urn:schemas-upnp-org:service:WANIPConnection:1": 2,
-		"urn:schemas-upnp-org:service:WANPPPConnection:1": 1,
-	}
-
-	var best service
-	bestScore := 0
-	for _, s := range services {
-		score := priority[strings.TrimSpace(s.ServiceType)]
-		if score > bestScore {
-			bestScore = score
-			best = s
+	var lastErr error
+	sawOnlyWFA := false
+	for _, iface := range ifaces {
+		result, err := discoverFromInterface(iface)
+		if err == nil {
+			return result, nil
 		}
+		if errors.Is(err, errOnlyWFADevices) {
+			sawOnlyWFA = true
+		}
+		lastErr = err
 	}
-	if bestScore == 0 {
-		return service{}, false
+
+	ipv6Ifaces, err := discoverIPv6Interfaces()
+	if err == nil {
+		for _, iface := range ipv6Ifaces {
+			result, err := discoverFromIPv6Interface(iface)
+			if err == nil {
+				return result, nil
+			}
+			if errors.Is(err, errOnlyWFADevices) {
+				sawOnlyWFA = true
+			}
+			lastErr = err
+		}
+	} else {
+		lastErr = err
 	}
-	return best, true
+
+	result, err := probeGatewayControlURLs(ifaces)
+	if err == nil {
+		return result, nil
+	}
+	lastErr = err
+
+	result, err = probeGatewayDescriptions(ifaces)
+	if err == nil {
+		return result, nil
+	}
+	lastErr = err
+
+	if sawOnlyWFA {
+		return DiscoveryResult{}, fmt.Errorf("%w: %v; fallback probes failed: %v", ErrNoGateway, errOnlyWFADevices, lastErr)
+	}
+	if lastErr != nil {
+		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
+	}
+	return DiscoveryResult{}, ErrNoGateway
 }
 
-func resolveControlURL(baseURL, controlURL string) (string, error) {
-	controlURL = strings.TrimSpace(controlURL)
-	if controlURL == "" {
-		return "", fmt.Errorf("empty control url")
-	}
-	if u, err := url.Parse(controlURL); err == nil && u.IsAbs() {
-		return controlURL, nil
-	}
-	base, err := url.Parse(baseURL)
+func discoverFromInterface(iface discoverInterface) (DiscoveryResult, error) {
+	responses, err := collectSSDPResponses(iface)
 	if err != nil {
-		return "", fmt.Errorf("parse base url %q: %w", baseURL, err)
+		return DiscoveryResult{}, err
 	}
-	ref, err := url.Parse(controlURL)
+	return discoverFromSSDPResponses(responses, "no matching SSDP responses")
+}
+
+func discoverFromIPv6Interface(iface discoverIPv6Interface) (DiscoveryResult, error) {
+	responses, err := collectSSDPResponsesIPv6(iface)
 	if err != nil {
-		return "", fmt.Errorf("parse control url %q: %w", controlURL, err)
+		return DiscoveryResult{}, err
 	}
-	return base.ResolveReference(ref).String(), nil
+	return discoverFromSSDPResponses(responses, "no matching IPv6 SSDP responses")
+}
+
+func discoverFromSSDPResponses(responses []ssdpResponse, noMatchMessage string) (DiscoveryResult, error) {
+	var lastErr error
+	wfaCount := 0
+	for _, response := range responses {
+		// WPS/WFA は UPnP ではあるが、ポートマッピング用 IGD ではないので候補から外す。
+		if isWFAResponse(response) {
+			wfaCount++
+			continue
+		}
+		result, err := discoverFromLocation(response.Location, defaultLocationFetcher)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+	}
+
+	if lastErr != nil {
+		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
+	}
+	if len(responses) > 0 && wfaCount == len(responses) {
+		return DiscoveryResult{}, fmt.Errorf("%w: %w", ErrNoGateway, errOnlyWFADevices)
+	}
+	return DiscoveryResult{}, errors.New(noMatchMessage)
 }
