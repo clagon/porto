@@ -125,7 +125,7 @@ func (s *service) status() StatusResponse {
 
 	resp := StatusResponse{
 		Discovered: s.gateway != nil,
-		Ports:      append([]upnp.PortMapping{}, s.ports...),
+		Ports:      newPortMappingResponses(s.ports),
 	}
 	if s.gateway != nil {
 		resp.ServiceType = s.gateway.ServiceType
@@ -422,4 +422,3 @@ func (s *service) syncActivePorts(mapper PortMapper, localIP string) {
 	}
 	s.mu.Unlock()
 }
-
