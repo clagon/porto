@@ -4,17 +4,28 @@ import (
 	"net/http"
 
 	"github.com/clagon/port-mapper/backend/internal/config"
+<<<<<<< HEAD
+=======
+	"github.com/clagon/port-mapper/backend/internal/service"
+	"github.com/clagon/port-mapper/backend/internal/upnp"
+>>>>>>> main
 	"github.com/labstack/echo/v4"
 )
 
-type apiHandlers struct {
-	svc *service
+type apiService interface {
+	Status() service.Status
+	Discover() (service.Status, error)
+	OpenPort(upnp.PortMapping) (service.Status, error)
+	ClosePort(upnp.PortMapping) (service.Status, error)
+	Settings() config.Config
+	UpdateSettings(config.Config) (config.Config, error)
 }
 
-func newAPIHandlers(svc *service) *apiHandlers {
-	if svc == nil {
-		svc = newService(serviceOptions{cfg: config.DefaultConfig()})
-	}
+type apiHandlers struct {
+	svc apiService
+}
+
+func newAPIHandlers(svc apiService) *apiHandlers {
 	return &apiHandlers{svc: svc}
 }
 
@@ -23,11 +34,11 @@ func (h *apiHandlers) health(c echo.Context) error {
 }
 
 func (h *apiHandlers) status(c echo.Context) error {
-	return c.JSON(http.StatusOK, h.svc.status())
+	return c.JSON(http.StatusOK, h.svc.Status())
 }
 
 func (h *apiHandlers) discover(c echo.Context) error {
-	status, err := h.svc.discover()
+	status, err := h.svc.Discover()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadGateway, err.Error())
 	}
@@ -39,7 +50,11 @@ func (h *apiHandlers) portsOpen(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
+<<<<<<< HEAD
 	status, err := h.svc.openPort(req.toPortMapping())
+=======
+	status, err := h.svc.OpenPort(req)
+>>>>>>> main
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -51,7 +66,11 @@ func (h *apiHandlers) portsClose(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
+<<<<<<< HEAD
 	status, err := h.svc.closePort(req.toPortMapping())
+=======
+	status, err := h.svc.ClosePort(req)
+>>>>>>> main
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
@@ -59,7 +78,7 @@ func (h *apiHandlers) portsClose(c echo.Context) error {
 }
 
 func (h *apiHandlers) getSettings(c echo.Context) error {
-	return c.JSON(http.StatusOK, h.svc.settings())
+	return c.JSON(http.StatusOK, h.svc.Settings())
 }
 
 func (h *apiHandlers) updateSettings(c echo.Context) error {
@@ -67,7 +86,7 @@ func (h *apiHandlers) updateSettings(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if _, err := h.svc.updateSettings(req); err != nil {
+	if _, err := h.svc.UpdateSettings(req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 	return c.JSON(http.StatusOK, ActionResponse{Ok: true})
