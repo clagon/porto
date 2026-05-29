@@ -105,7 +105,7 @@
         <h3 class="font-headline-sm text-headline-sm text-error">{friendlyError.title}</h3>
         <p class="font-body-md text-body-md text-secondary leading-relaxed">{friendlyError.message}</p>
       </div>
-      <button class="text-secondary hover:text-text-main flex-shrink-0 p-1 rounded-full hover:bg-surface-container transition-colors" on:click={() => error = ''} aria-label="エラーを閉じる">
+      <button class="text-secondary hover:text-text-main flex-shrink-0 p-0 w-8 h-8 flex items-center justify-center rounded-full bg-transparent border-none hover:bg-surface-container transition-all" on:click={() => error = ''} aria-label="エラーを閉じる">
         <span class="material-symbols-outlined text-sm">close</span>
       </button>
     </div>

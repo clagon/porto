@@ -25,10 +25,10 @@
     <!-- Trailing Actions -->
     <div class="flex items-center gap-4">
       <span class="hidden md:inline-block font-label-sm text-label-sm text-status-active bg-surface-container px-3 py-1 rounded-full">Status: Active</span>
-      <button aria-label="Settings" class="text-secondary hover:text-primary-container transition-colors duration-200 focus-ring-soft rounded-full p-1" on:click={() => dispatch('settings')}>
+      <button aria-label="Settings" class="text-secondary hover:text-primary-container hover:bg-surface-container transition-all duration-200 focus-ring-soft rounded-full w-10 h-10 flex items-center justify-center p-0 bg-transparent border-none" on:click={() => dispatch('settings')}>
         <span class="material-symbols-outlined">settings</span>
       </button>
-      <button aria-label="Help" class="text-secondary hover:text-primary-container transition-colors duration-200 focus-ring-soft rounded-full p-1">
+      <button aria-label="Help" class="text-secondary hover:text-primary-container hover:bg-surface-container transition-all duration-200 focus-ring-soft rounded-full w-10 h-10 flex items-center justify-center p-0 bg-transparent border-none">
         <span class="material-symbols-outlined">help</span>
       </button>
     </div>
