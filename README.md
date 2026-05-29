@@ -1,6 +1,5 @@
 # Porto ── /ˈpɔːr.toʊ/ (ポルト)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8.svg?style=flat&logo=go)](https://go.dev)
 [![Node Version](https://img.shields.io/badge/Node-18%2B-339933.svg?style=flat&logo=node.js)](https://nodejs.org)
 
@@ -85,9 +84,9 @@ go run ./cmd/port-mapper --listen-addr 127.0.0.1:9090 --no-browser
 ## 📖 User Guides & Documentation
 
 To learn more about how to use Porto and keep your network safe, check out the built-in docs:
-- [使い方ガイド (Usage Guide)](file:///home/clagon/repos/github.com/clagon/port-mapper/frontend/docs/usage.md) ── How to start sharing in 4 simple steps.
-- [Minecraftの設定例 (Minecraft Guide)](file:///home/clagon/repos/github.com/clagon/port-mapper/frontend/docs/minecraft.md) ── Practical guide to set up Java and Bedrock servers for friends.
-- [安全ガイド & FAQ (Security & FAQ)](file:///home/clagon/repos/github.com/clagon/port-mapper/frontend/docs/security.md) ── Learn why Porto is safe and solve common connection issues.
+- [使い方ガイド (Usage Guide)](frontend/docs/usage.md) ── How to start sharing in 4 simple steps.
+- [Minecraftの設定例 (Minecraft Guide)](frontend/docs/minecraft.md) ── Practical guide to set up Java and Bedrock servers for friends.
+- [安全ガイド & FAQ (Security & FAQ)](frontend/docs/security.md) ── Learn why Porto is safe and solve common connection issues.
 
 ---
 
@@ -99,8 +98,4 @@ The Go backend exposes a minimal HTTP API on localhost.
 - **URL**: `GET /api/health`
 - **Response**: `{"ok":true}`
 
----
 
-## 📄 License
-
-This project is licensed under the MIT License.
