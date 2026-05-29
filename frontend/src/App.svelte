@@ -47,7 +47,15 @@
   }
 
   async function openPort(portData) {
-    await runAction(() => api.openPort(portData));
+    const mapping = {
+      protocol: portData.protocol,
+      external_port: portData.portNumber,
+      internal_port: portData.portNumber,
+      internal_ip: '',
+      description: portData.appName,
+      lease_duration_seconds: 0
+    };
+    await runAction(() => api.openPort(mapping));
     isAddModalOpen = false;
   }
 

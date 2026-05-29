@@ -248,6 +248,50 @@ func TestDiscoveryAndMappingEndpoints(t *testing.T) {
 		}
 	})
 
+	t.Run("open port with empty internal ip resolves automatically", func(t *testing.T) {
+		emptyIPBody := []byte(`{"protocol":"TCP","external_port":9090,"internal_port":9090,"description":"empty ip test"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/ports/open", bytes.NewReader(emptyIPBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("status = %d, want %d (body: %s)", rec.Code, http.StatusAccepted, rec.Body.String())
+		}
+		var got StatusResponse
+		decodeJSON(t, rec.Body, &got)
+		// ポート数は 2 個になっているはず（前のテストの8080と今回の9090）
+		if len(got.Ports) != 2 {
+			t.Fatalf("ports = %d, want 2", len(got.Ports))
+		}
+		
+		// 追加されたポート (external_port: 9090) の InternalIP が空ではなくなっていることを確認
+		found := false
+		for _, p := range got.Ports {
+			if p.ExternalPort == 9090 {
+				found = true
+				if p.InternalIP == "" {
+					t.Fatal("internal_ip should be automatically resolved and not empty")
+				}
+				t.Logf("Automatically resolved internal IP: %s", p.InternalIP)
+			}
+		}
+		if !found {
+			t.Fatal("port 9090 not found in status response")
+		}
+
+		// クリーンアップのために 9090 ポートをクローズする
+		closeBody := []byte(`{"protocol":"TCP","external_port":9090}`)
+		reqClose := httptest.NewRequest(http.MethodPost, "/api/ports/close", bytes.NewReader(closeBody))
+		reqClose.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		recClose := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(recClose, reqClose)
+		if recClose.Code != http.StatusAccepted {
+			t.Fatalf("close status = %d, want %d", recClose.Code, http.StatusAccepted)
+		}
+		// 後続のテストに影響を与えないように fakeMapper の delete 記録をリセットする
+		mapper.deleteCalls = nil
+	})
+
 	t.Run("close port removes mapping", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/ports/close", bytes.NewReader(mappingBody))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

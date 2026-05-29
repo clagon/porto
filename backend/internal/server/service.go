@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -171,6 +173,12 @@ func (s *service) discover() (StatusResponse, error) {
 }
 
 func (s *service) openPort(mapping upnp.PortMapping) (StatusResponse, error) {
+	resolvedIP, err := s.resolveInternalIP(mapping.InternalIP)
+	if err != nil {
+		return StatusResponse{}, fmt.Errorf("failed to resolve internal IP: %w", err)
+	}
+	mapping.InternalIP = resolvedIP
+
 	if err := upnp.ValidatePortMapping(mapping); err != nil {
 		return StatusResponse{}, err
 	}
@@ -290,4 +298,67 @@ func validateDeleteProtocol(protocol string) error {
 
 func boolValue(v *bool) bool {
 	return v != nil && *v
+}
+
+func (s *service) resolveInternalIP(providedIP string) (string, error) {
+	if ip := strings.TrimSpace(providedIP); ip != "" {
+		return ip, nil
+	}
+
+	s.mu.RLock()
+	gateway := s.gateway
+	s.mu.RUnlock()
+
+	if gateway == nil {
+		return "", errNoGateway
+	}
+
+	u, err := url.Parse(gateway.ControlURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse gateway control URL: %w", err)
+	}
+
+	// ゲートウェイのホストに向けて一時的にUDPソケットを開くことでローカルIPを特定
+	conn, err := net.Dial("udp", u.Host)
+	if err != nil {
+		// 失敗時はフォールバックとして最初の非ループバックIPv4を探す
+		return s.fallbackLocalIP()
+	}
+	defer conn.Close()
+
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok || localAddr.IP.IsUnspecified() {
+		return s.fallbackLocalIP()
+	}
+
+	return localAddr.IP.String(), nil
+}
+
+func (s *service) fallbackLocalIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip != nil && !ip.IsLoopback() && ip.To4() != nil {
+				return ip.String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no suitable local IP address found")
 }
