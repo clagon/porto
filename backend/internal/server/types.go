@@ -1,8 +1,8 @@
 package server
 
 import (
+	"github.com/clagon/port-mapper/backend/internal/application"
 	"github.com/clagon/port-mapper/backend/internal/service"
-	"github.com/clagon/port-mapper/backend/internal/upnp"
 )
 
 // HealthResponse is the JSON payload returned by GET /api/health.
@@ -51,8 +51,8 @@ type StatusResponse struct {
 	Ports       []PortMappingResponse `json:"ports"`
 }
 
-func (r PortMappingRequest) toPortMapping() upnp.PortMapping {
-	return upnp.PortMapping{
+func (r PortMappingRequest) toPortMapping() application.PortMapping {
+	return application.PortMapping{
 		Protocol:             r.Protocol,
 		ExternalPort:         r.ExternalPort,
 		InternalIP:           r.InternalIP,
@@ -62,14 +62,14 @@ func (r PortMappingRequest) toPortMapping() upnp.PortMapping {
 	}
 }
 
-func (r ClosePortRequest) toPortMapping() upnp.PortMapping {
-	return upnp.PortMapping{
+func (r ClosePortRequest) toPortMapping() application.PortMapping {
+	return application.PortMapping{
 		Protocol:     r.Protocol,
 		ExternalPort: r.ExternalPort,
 	}
 }
 
-func newPortMappingResponse(mapping upnp.PortMapping) PortMappingResponse {
+func newPortMappingResponse(mapping application.PortMapping) PortMappingResponse {
 	return PortMappingResponse{
 		Protocol:             mapping.Protocol,
 		ExternalPort:         mapping.ExternalPort,
@@ -80,7 +80,7 @@ func newPortMappingResponse(mapping upnp.PortMapping) PortMappingResponse {
 	}
 }
 
-func newPortMappingResponses(mappings []upnp.PortMapping) []PortMappingResponse {
+func newPortMappingResponses(mappings []application.PortMapping) []PortMappingResponse {
 	ports := make([]PortMappingResponse, len(mappings))
 	for i, mapping := range mappings {
 		ports[i] = newPortMappingResponse(mapping)

@@ -3,10 +3,12 @@ package upnp
 import (
 	"errors"
 	"fmt"
+
+	"github.com/clagon/port-mapper/backend/internal/application"
 )
 
 var (
-	ErrNoGateway      = errors.New("no UPnP gateway discovered")
+	ErrNoGateway      = application.ErrNoGateway
 	errOnlyWFADevices = errors.New("UPnP discovery found only WPS/WFA devices; no InternetGatewayDevice/WAN service responded")
 )
 

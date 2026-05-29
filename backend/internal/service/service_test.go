@@ -5,31 +5,17 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/clagon/port-mapper/backend/internal/application"
 	"github.com/clagon/port-mapper/backend/internal/config"
-	"github.com/clagon/port-mapper/backend/internal/upnp"
 )
 
-func TestDefaultPortMapperFactoryUsesTimeoutClient(t *testing.T) {
-	client := defaultPortMapperFactory(upnp.DiscoveryResult{ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2", ControlURL: "http://192.168.1.1:1900/control"})
-	soap, ok := client.(*upnp.SOAPClient)
-	if !ok {
-		t.Fatalf("defaultPortMapperFactory() type = %T, want *upnp.SOAPClient", client)
-	}
-	if soap.HTTPClient == nil {
-		t.Fatal("HTTPClient = nil")
-	}
-	if soap.HTTPClient.Timeout <= 0 {
-		t.Fatalf("HTTPClient timeout = %v, want > 0", soap.HTTPClient.Timeout)
-	}
-}
-
 type fakeDiscovery struct {
-	result upnp.DiscoveryResult
+	result application.DiscoveryResult
 	err    error
 	calls  int
 }
 
-func (f *fakeDiscovery) Discover() (upnp.DiscoveryResult, error) {
+func (f *fakeDiscovery) Discover() (application.DiscoveryResult, error) {
 	f.calls++
 	return f.result, f.err
 }
@@ -44,8 +30,8 @@ type fakeMapper struct {
 	externalErr error
 	addErr      error
 	deleteErr   error
-	entries     []upnp.PortMapping
-	addCalls    []upnp.PortMapping
+	entries     []application.PortMapping
+	addCalls    []application.PortMapping
 	deleteCalls []deleteCall
 }
 
@@ -56,7 +42,7 @@ func (f *fakeMapper) GetExternalIPAddress() (string, error) {
 	return f.externalIP, nil
 }
 
-func (f *fakeMapper) AddPortMapping(m upnp.PortMapping) error {
+func (f *fakeMapper) AddPortMapping(m application.PortMapping) error {
 	f.addCalls = append(f.addCalls, m)
 	return f.addErr
 }
@@ -66,19 +52,19 @@ func (f *fakeMapper) DeletePortMapping(protocol string, externalPort int) error 
 	return f.deleteErr
 }
 
-func (f *fakeMapper) GetGenericPortMappingEntry(index int) (upnp.PortMapping, error) {
+func (f *fakeMapper) GetGenericPortMappingEntry(index int) (application.PortMapping, error) {
 	if index < 0 || index >= len(f.entries) {
-		return upnp.PortMapping{}, errNoGateway
+		return application.PortMapping{}, errNoGateway
 	}
 	return f.entries[index], nil
 }
 
-func newTestService(cfgPath string, discovery discoveryClient, mapper *fakeMapper) *Service {
+func newTestService(cfgPath string, discovery application.DiscoveryClient, mapper *fakeMapper) *Service {
 	return New(Options{
 		ConfigPath: cfgPath,
 		Config:     config.DefaultConfig(),
-		discovery:  discovery,
-		portMapperFactory: func(upnp.DiscoveryResult) portMapper {
+		Discovery:  discovery,
+		PortMapperFactory: func(application.DiscoveryResult) application.PortMapper {
 			return mapper
 		},
 	})
@@ -106,7 +92,7 @@ func TestSettingsPersistToDisk(t *testing.T) {
 }
 
 func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
-	discovery := &fakeDiscovery{result: upnp.DiscoveryResult{
+	discovery := &fakeDiscovery{result: application.DiscoveryResult{
 		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 	}}
@@ -124,7 +110,7 @@ func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
 		t.Fatalf("status = %+v", got)
 	}
 
-	soft := newTestService(filepath.Join(t.TempDir(), "config.json"), &fakeDiscovery{err: upnp.ErrNoGateway}, &fakeMapper{})
+	soft := newTestService(filepath.Join(t.TempDir(), "config.json"), &fakeDiscovery{err: application.ErrNoGateway}, &fakeMapper{})
 	got, err = soft.Discover()
 	if err != nil {
 		t.Fatalf("Discover() no gateway error = %v", err)
@@ -135,7 +121,7 @@ func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
 }
 
 func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
-	discovery := &fakeDiscovery{result: upnp.DiscoveryResult{
+	discovery := &fakeDiscovery{result: application.DiscoveryResult{
 		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 	}}
@@ -145,7 +131,7 @@ func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
 		t.Fatalf("Discover() error = %v", err)
 	}
 
-	mapping := upnp.PortMapping{
+	mapping := application.PortMapping{
 		Protocol:             "TCP",
 		ExternalPort:         8080,
 		InternalIP:           "192.168.1.20",
@@ -161,7 +147,7 @@ func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
 		t.Fatalf("add calls = %d ports = %d", len(mapper.addCalls), len(got.Ports))
 	}
 
-	got, err = svc.ClosePort(upnp.PortMapping{Protocol: "TCP", ExternalPort: 8080})
+	got, err = svc.ClosePort(application.PortMapping{Protocol: "TCP", ExternalPort: 8080})
 	if err != nil {
 		t.Fatalf("ClosePort() error = %v", err)
 	}

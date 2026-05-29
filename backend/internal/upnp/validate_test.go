@@ -11,7 +11,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "valid tcp",
 			in: PortMapping{
-				Protocol:    "TCP",
+				Protocol:     "TCP",
 				ExternalPort: 8080,
 				InternalIP:   "192.168.1.20",
 				InternalPort: 8080,
@@ -21,7 +21,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "valid udp",
 			in: PortMapping{
-				Protocol:    "UDP",
+				Protocol:     "UDP",
 				ExternalPort: 5353,
 				InternalIP:   "192.168.1.20",
 				InternalPort: 5353,
@@ -31,7 +31,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "invalid protocol",
 			in: PortMapping{
-				Protocol:    "ICMP",
+				Protocol:     "ICMP",
 				ExternalPort: 8080,
 				InternalIP:   "192.168.1.20",
 				InternalPort: 8080,
@@ -41,7 +41,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "external port out of range",
 			in: PortMapping{
-				Protocol:    "TCP",
+				Protocol:     "TCP",
 				ExternalPort: 70000,
 				InternalIP:   "192.168.1.20",
 				InternalPort: 8080,
@@ -51,7 +51,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "missing internal ip",
 			in: PortMapping{
-				Protocol:    "TCP",
+				Protocol:     "TCP",
 				ExternalPort: 8080,
 				InternalPort: 8080,
 			},
@@ -60,7 +60,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "invalid internal ip",
 			in: PortMapping{
-				Protocol:    "TCP",
+				Protocol:     "TCP",
 				ExternalPort: 8080,
 				InternalIP:   "999.999.999.999",
 				InternalPort: 8080,
@@ -70,7 +70,7 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "empty description allowed",
 			in: PortMapping{
-				Protocol:    "TCP",
+				Protocol:     "TCP",
 				ExternalPort: 8080,
 				InternalIP:   "192.168.1.20",
 				InternalPort: 8080,
@@ -81,10 +81,10 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "negative lease duration",
 			in: PortMapping{
-				Protocol:            "TCP",
-				ExternalPort:        8080,
-				InternalIP:          "192.168.1.20",
-				InternalPort:        8080,
+				Protocol:             "TCP",
+				ExternalPort:         8080,
+				InternalIP:           "192.168.1.20",
+				InternalPort:         8080,
 				LeaseDurationSeconds: -1,
 			},
 			wantErr: true,
@@ -92,10 +92,10 @@ func TestValidatePortMapping(t *testing.T) {
 		{
 			name: "huge lease duration",
 			in: PortMapping{
-				Protocol:            "TCP",
-				ExternalPort:        8080,
-				InternalIP:          "192.168.1.20",
-				InternalPort:        8080,
+				Protocol:             "TCP",
+				ExternalPort:         8080,
+				InternalIP:           "192.168.1.20",
+				InternalPort:         8080,
 				LeaseDurationSeconds: 99999999,
 			},
 			wantErr: true,

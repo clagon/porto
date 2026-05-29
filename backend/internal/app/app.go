@@ -10,6 +10,7 @@ import (
 	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/clagon/port-mapper/backend/internal/server"
 	"github.com/clagon/port-mapper/backend/internal/service"
+	"github.com/clagon/port-mapper/backend/internal/upnp"
 )
 
 const defaultListenAddr = "127.0.0.1:8080"
@@ -68,10 +69,12 @@ func New(opts AppOptions) (*App, error) {
 	}
 
 	svc := service.New(service.Options{
-		ConfigPath:    configPath,
-		Config:        cfg,
-		Logger:        logger,
-		SettingsStore: settingsStore,
+		ConfigPath:        configPath,
+		Config:            cfg,
+		Logger:            logger,
+		SettingsStore:     settingsStore,
+		Discovery:         upnp.NewDiscoveryClient(),
+		PortMapperFactory: upnp.NewSOAPPortMapper,
 	})
 
 	return &App{
