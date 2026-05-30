@@ -65,6 +65,11 @@ func New(opts AppOptions) (*App, error) {
 		return nil, err
 	}
 
+	browserOpener := opts.BrowserOpener
+	if browserOpener == nil && opts.OpenBrowser {
+		browserOpener = defaultBrowserOpener()
+	}
+
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -85,7 +90,7 @@ func New(opts AppOptions) (*App, error) {
 		service:       svc,
 		configPath:    configPath,
 		openBrowser:   opts.OpenBrowser,
-		browserOpener: opts.BrowserOpener,
+		browserOpener: browserOpener,
 		logger:        logger,
 	}, nil
 }

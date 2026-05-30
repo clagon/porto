@@ -1,4 +1,4 @@
-package application
+package domain
 
 // PortMapping は、ルーターに対する単一のポートマッピング要求または現在のマッピング状態を表します。
 type PortMapping struct {

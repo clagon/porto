@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 )
 
-// DiscoveryClient は、アプリケーション層の探索インターフェース（application.DiscoveryClient）にUPnP探索の実装を適合させるためのアダプター構造体です。
+// DiscoveryClient は、アプリケーション層の探索インターフェース（domain.DiscoveryClient）にUPnP探索の実装を適合させるためのアダプター構造体です。
 type DiscoveryClient struct{}
 
 // NewDiscoveryClient は、UPnP 探索アダプターの新しいインスタンスを作成します。
@@ -17,12 +17,12 @@ func NewDiscoveryClient() DiscoveryClient {
 }
 
 // Discover は、ネットワーク上の適合するUPnPゲートウェイを探索し、ドメイン探索結果モデルを返します。
-func (DiscoveryClient) Discover() (application.DiscoveryResult, error) {
+func (DiscoveryClient) Discover() (domain.DiscoveryResult, error) {
 	return Discover()
 }
 
-// NewSOAPPortMapper は、UPnP 探索結果からアプリケーション層（application.PortMapper）に適合した SOAP クライアント転送操作インスタンスを生成するファクトリ関数です。
-func NewSOAPPortMapper(result application.DiscoveryResult) application.PortMapper {
+// NewSOAPPortMapper は、UPnP 探索結果からアプリケーション層（domain.PortMapper）に適合した SOAP クライアント転送操作インスタンスを生成するファクトリ関数です。
+func NewSOAPPortMapper(result domain.DiscoveryResult) domain.PortMapper {
 	return &SOAPClient{
 		Endpoint:    result.ControlURL,
 		ServiceType: result.ServiceType,

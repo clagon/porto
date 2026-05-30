@@ -53,7 +53,7 @@ Compile and run the Go backend:
 
 ```bash
 cd backend
-go run ./cmd/port-mapper
+go run ./cmd
 ```
 
 Upon startup, Porto will:
@@ -78,7 +78,7 @@ You can customize Porto's behavior using the following command-line flags:
 
 Example:
 ```bash
-go run ./cmd/port-mapper --listen-addr 127.0.0.1:9090 --no-browser
+go run ./cmd --listen-addr 127.0.0.1:9090 --no-browser
 ```
 
 ---

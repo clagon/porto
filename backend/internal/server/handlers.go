@@ -3,7 +3,7 @@ package server
 import (
 	"net/http"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/clagon/port-mapper/backend/internal/service"
 	"github.com/labstack/echo/v4"
@@ -14,8 +14,8 @@ import (
 type apiService interface {
 	Status() service.Status
 	Discover() (service.Status, error)
-	OpenPort(application.PortMapping) (service.Status, error)
-	ClosePort(application.PortMapping) (service.Status, error)
+	OpenPort(domain.PortMapping) (service.Status, error)
+	ClosePort(domain.PortMapping) (service.Status, error)
 	Settings() config.Config
 	UpdateSettings(config.Config) (config.Config, error)
 }

@@ -1,5 +1,5 @@
-// Package application は Porto のドメインモデル、境界インターフェース、およびビジネス検証ロジックを定義します。
-package application
+// Package domain は Porto のドメインモデル、境界インターフェース、およびビジネス検証ロジックを定義します。
+package domain
 
 import "errors"
 
