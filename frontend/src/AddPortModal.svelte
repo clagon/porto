@@ -136,16 +136,16 @@
             </div>
           </div>
           {#if isUnlimited}
-            <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
-              <span class="material-symbols-outlined text-red-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">warning</span>
-              <p class="font-label-sm text-label-sm text-red-600">
+            <div class="flex items-start gap-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl">
+              <span class="material-symbols-outlined text-orange-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">warning</span>
+              <p class="font-label-sm text-label-sm text-orange-700">
                 <strong>0 は無期限解放を意味します。</strong>不要になったときは必ず手動で閉じてください。
               </p>
             </div>
           {:else if isExceeded}
-            <div class="flex items-start gap-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl">
-              <span class="material-symbols-outlined text-orange-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">error</span>
-              <p class="font-label-sm text-label-sm text-orange-700">
+            <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
+              <span class="material-symbols-outlined text-red-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">error</span>
+              <p class="font-label-sm text-label-sm text-red-600">
                 <strong>有効期間は最大 7 日（604,800 秒）です。</strong>値を小さくしてください。
               </p>
             </div>
