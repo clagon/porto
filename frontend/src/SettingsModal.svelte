@@ -22,7 +22,7 @@
 </script>
 
 <div class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-  <main class="w-full max-w-md mx-auto relative z-[101]">
+  <main class="w-full max-w-md mx-auto relative z-[101] max-h-[calc(100vh-2rem)] overflow-y-auto">
     <button class="inline-flex items-center gap-2 text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-full transition-all duration-200 mb-8 font-body-md group focus:outline-none focus:ring-2 focus:ring-white/20" on:click={close}>
       <span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform duration-200 text-lg">arrow_back</span>
       ダッシュボードに戻る
@@ -36,10 +36,16 @@
           <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">settings</span>
         </div>
         <h1 class="font-headline-md text-headline-md text-on-surface">設定</h1>
-        <p class="font-body-md text-body-md text-secondary">ローカル設定を変更します。変更は config.json に保存されます。</p>
+        <p class="font-body-md text-body-md text-secondary">ローカル設定を変更します。変更は config.json に保存され、次回起動時から反映されます。</p>
       </div>
 
       <form class="space-y-6 relative z-10" on:submit|preventDefault={submit}>
+        <div class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          <span class="material-symbols-outlined text-[20px] leading-none mt-0.5">info</span>
+          <p class="font-label-sm text-label-sm leading-relaxed">
+            リッスンアドレスと「起動時に自動検出」の変更は保存後すぐには反映されません。アプリを終了して、次回起動したときから有効になります。
+          </p>
+        </div>
         <!-- Listen address -->
         <div class="space-y-3">
           <label class="block font-label-sm text-label-sm text-on-surface-variant" for="listenAddr">
@@ -59,7 +65,7 @@
               type="text"
             />
           </div>
-          <p class="font-label-sm text-label-sm text-text-muted px-1">localhostのままにしておくとUIがプライベートに保たれます。</p>
+          <p class="font-label-sm text-label-sm text-text-muted px-1">localhostのままにしておくとUIがプライベートに保たれます。変更後の待受先は次回起動時から使われます。</p>
         </div>
 
         <!-- Auto discover -->
