@@ -83,6 +83,20 @@ go run ./cmd/porto --listen-addr 127.0.0.1:9090 --no-browser
 
 ---
 
+## ✅ Quality Checks
+
+Before opening a PR or pushing a UI change, run:
+
+```bash
+cd backend
+go test ./...
+
+npm --prefix frontend run lint
+npm --prefix frontend run build
+```
+
+GitHub Actions runs the same backend test, frontend lint, and frontend build checks on pushes and pull requests.
+
 ## 📖 User Guides & Documentation
 
 To learn more about how to use Porto and keep your network safe, check out the built-in docs:
