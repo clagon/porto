@@ -18,6 +18,7 @@
   $: leaseDurationSeconds =
     leaseDurationValue === 0 ? 0 : leaseDurationValue * unitSeconds[leaseUnit];
   $: isUnlimited = leaseDurationSeconds === 0;
+  $: isExceeded = leaseDurationSeconds > 604800;
 
   onMount(() => {
     if (port) {
@@ -141,6 +142,13 @@
                 <strong>0 は無期限解放を意味します。</strong>不要になったときは必ず手動で閉じてください。
               </p>
             </div>
+          {:else if isExceeded}
+            <div class="flex items-start gap-2 px-3 py-2.5 bg-orange-50 border border-orange-200 rounded-xl">
+              <span class="material-symbols-outlined text-orange-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">error</span>
+              <p class="font-label-sm text-label-sm text-orange-700">
+                <strong>有効期間は最大 7 日（604,800 秒）です。</strong>値を小さくしてください。
+              </p>
+            </div>
           {:else}
             <p class="font-label-sm text-label-sm text-text-muted px-1">
               {leaseDurationValue}{unitLabels[leaseUnit]}後に自動でポートが閉じられます。
@@ -169,7 +177,7 @@
         </div>
 
         <div class="pt-6">
-          <button class="w-full py-4 px-6 bg-primary text-on-primary rounded-full font-headline-md-mobile text-headline-md-mobile hover:bg-surface-tint hover:-translate-y-1 hover:shadow-ambient-hover transition-all duration-200 flex items-center justify-center gap-2 group relative overflow-hidden" type="submit">
+          <button class="w-full py-4 px-6 bg-primary text-on-primary rounded-full font-headline-md-mobile text-headline-md-mobile hover:bg-surface-tint hover:-translate-y-1 hover:shadow-ambient-hover transition-all duration-200 flex items-center justify-center gap-2 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none" type="submit" disabled={isExceeded}>
             <div class="absolute inset-0 border-2 border-white/20 rounded-full"></div>
             <span>{isEdit ? '変更を保存する' : '共有を開始する'}</span>
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform duration-200">
