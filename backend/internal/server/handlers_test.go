@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 	"github.com/clagon/port-mapper/backend/internal/config"
 	"github.com/clagon/port-mapper/backend/internal/service"
 	"github.com/labstack/echo/v4"
@@ -21,8 +21,8 @@ type fakeAPIService struct {
 	openErr       error
 	closeErr      error
 	settingsErr   error
-	openRequest   application.PortMapping
-	closeRequest  application.PortMapping
+	openRequest   domain.PortMapping
+	closeRequest  domain.PortMapping
 	settingsReq   config.Config
 }
 
@@ -30,11 +30,11 @@ func (f *fakeAPIService) Status() service.Status { return f.statusValue }
 func (f *fakeAPIService) Discover() (service.Status, error) {
 	return f.statusValue, f.discoverErr
 }
-func (f *fakeAPIService) OpenPort(m application.PortMapping) (service.Status, error) {
+func (f *fakeAPIService) OpenPort(m domain.PortMapping) (service.Status, error) {
 	f.openRequest = m
 	return f.statusValue, f.openErr
 }
-func (f *fakeAPIService) ClosePort(m application.PortMapping) (service.Status, error) {
+func (f *fakeAPIService) ClosePort(m domain.PortMapping) (service.Status, error) {
 	f.closeRequest = m
 	return f.statusValue, f.closeErr
 }

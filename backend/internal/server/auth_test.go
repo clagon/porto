@@ -1,4 +1,4 @@
-package auth
+package server
 
 import "testing"
 
@@ -14,9 +14,9 @@ func TestGenerateToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateToken(tt.length)
+			got, err := generateToken(tt.length)
 			if err != nil {
-				t.Fatalf("GenerateToken() error = %v", err)
+				t.Fatalf("generateToken() error = %v", err)
 			}
 			if len(got) < tt.wantMin {
 				t.Fatalf("len(token) = %d, want >= %d", len(got), tt.wantMin)
@@ -39,8 +39,8 @@ func TestIsBearerToken(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsBearerToken(tt.expected, tt.provided); got != tt.want {
-				t.Fatalf("IsBearerToken() = %v, want %v", got, tt.want)
+			if got := isBearerToken(tt.expected, tt.provided); got != tt.want {
+				t.Fatalf("isBearerToken() = %v, want %v", got, tt.want)
 			}
 		})
 	}

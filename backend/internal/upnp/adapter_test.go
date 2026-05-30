@@ -3,11 +3,11 @@ package upnp
 import (
 	"testing"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 )
 
 func TestNewSOAPPortMapperUsesTimeoutClient(t *testing.T) {
-	client := NewSOAPPortMapper(application.DiscoveryResult{ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2", ControlURL: "http://192.168.1.1:1900/control"})
+	client := NewSOAPPortMapper(domain.DiscoveryResult{ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2", ControlURL: "http://192.168.1.1:1900/control"})
 	soap, ok := client.(*SOAPClient)
 	if !ok {
 		t.Fatalf("NewSOAPPortMapper() type = %T, want *SOAPClient", client)

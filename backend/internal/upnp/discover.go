@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 )
 
 var (
 	// ErrNoGateway は、ネットワーク上で適合するUPnPゲートウェイ（ルーター）が発見できなかったことを表すエラーです。
-	ErrNoGateway      = application.ErrNoGateway
+	ErrNoGateway      = domain.ErrNoGateway
 	errOnlyWFADevices = errors.New("UPnP discovery found only WPS/WFA devices; no InternetGatewayDevice/WAN service responded")
 )
 

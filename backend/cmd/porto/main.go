@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/clagon/port-mapper/backend/internal/app"
-	"github.com/clagon/port-mapper/backend/internal/browseropener"
 )
 
 // cliOptions はコマンドライン引数から解析された起動オプションを表します。
@@ -47,11 +46,10 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	a, err := app.New(app.AppOptions{
-		ListenAddr:    opts.ListenAddr,
-		ConfigPath:    opts.ConfigPath,
-		OpenBrowser:   opts.OpenBrowser,
-		BrowserOpener: browseropener.New(),
-		Logger:        logger,
+		ListenAddr:  opts.ListenAddr,
+		ConfigPath:  opts.ConfigPath,
+		OpenBrowser: opts.OpenBrowser,
+		Logger:      logger,
 	})
 	if err != nil {
 		log.Fatal(err)

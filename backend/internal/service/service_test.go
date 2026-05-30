@@ -5,17 +5,17 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/clagon/port-mapper/backend/internal/application"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 	"github.com/clagon/port-mapper/backend/internal/config"
 )
 
 type fakeDiscovery struct {
-	result application.DiscoveryResult
+	result domain.DiscoveryResult
 	err    error
 	calls  int
 }
 
-func (f *fakeDiscovery) Discover() (application.DiscoveryResult, error) {
+func (f *fakeDiscovery) Discover() (domain.DiscoveryResult, error) {
 	f.calls++
 	return f.result, f.err
 }
@@ -30,8 +30,8 @@ type fakeMapper struct {
 	externalErr error
 	addErr      error
 	deleteErr   error
-	entries     []application.PortMapping
-	addCalls    []application.PortMapping
+	entries     []domain.PortMapping
+	addCalls    []domain.PortMapping
 	deleteCalls []deleteCall
 }
 
@@ -42,7 +42,7 @@ func (f *fakeMapper) GetExternalIPAddress() (string, error) {
 	return f.externalIP, nil
 }
 
-func (f *fakeMapper) AddPortMapping(m application.PortMapping) error {
+func (f *fakeMapper) AddPortMapping(m domain.PortMapping) error {
 	f.addCalls = append(f.addCalls, m)
 	return f.addErr
 }
@@ -52,19 +52,19 @@ func (f *fakeMapper) DeletePortMapping(protocol string, externalPort int) error 
 	return f.deleteErr
 }
 
-func (f *fakeMapper) GetGenericPortMappingEntry(index int) (application.PortMapping, error) {
+func (f *fakeMapper) GetGenericPortMappingEntry(index int) (domain.PortMapping, error) {
 	if index < 0 || index >= len(f.entries) {
-		return application.PortMapping{}, errNoGateway
+		return domain.PortMapping{}, errNoGateway
 	}
 	return f.entries[index], nil
 }
 
-func newTestService(cfgPath string, discovery application.DiscoveryClient, mapper *fakeMapper) *Service {
+func newTestService(cfgPath string, discovery domain.DiscoveryClient, mapper *fakeMapper) *Service {
 	return New(Options{
 		ConfigPath: cfgPath,
 		Config:     config.DefaultConfig(),
 		Discovery:  discovery,
-		PortMapperFactory: func(application.DiscoveryResult) application.PortMapper {
+		PortMapperFactory: func(domain.DiscoveryResult) domain.PortMapper {
 			return mapper
 		},
 	})
@@ -92,7 +92,7 @@ func TestSettingsPersistToDisk(t *testing.T) {
 }
 
 func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
-	discovery := &fakeDiscovery{result: application.DiscoveryResult{
+	discovery := &fakeDiscovery{result: domain.DiscoveryResult{
 		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 	}}
@@ -110,7 +110,7 @@ func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
 		t.Fatalf("status = %+v", got)
 	}
 
-	soft := newTestService(filepath.Join(t.TempDir(), "config.json"), &fakeDiscovery{err: application.ErrNoGateway}, &fakeMapper{})
+	soft := newTestService(filepath.Join(t.TempDir(), "config.json"), &fakeDiscovery{err: domain.ErrNoGateway}, &fakeMapper{})
 	got, err = soft.Discover()
 	if err != nil {
 		t.Fatalf("Discover() no gateway error = %v", err)
@@ -121,7 +121,7 @@ func TestDiscoverUpdatesStatusAndSoftNoGateway(t *testing.T) {
 }
 
 func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
-	discovery := &fakeDiscovery{result: application.DiscoveryResult{
+	discovery := &fakeDiscovery{result: domain.DiscoveryResult{
 		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
 		ControlURL:  "http://192.168.1.1:1900/upnp/control/WANIPConn2",
 	}}
@@ -131,7 +131,7 @@ func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
 		t.Fatalf("Discover() error = %v", err)
 	}
 
-	mapping := application.PortMapping{
+	mapping := domain.PortMapping{
 		Protocol:             "TCP",
 		ExternalPort:         8080,
 		InternalIP:           "192.168.1.20",
@@ -147,7 +147,7 @@ func TestOpenAndClosePortUpdatesStatus(t *testing.T) {
 		t.Fatalf("add calls = %d ports = %d", len(mapper.addCalls), len(got.Ports))
 	}
 
-	got, err = svc.ClosePort(application.PortMapping{Protocol: "TCP", ExternalPort: 8080})
+	got, err = svc.ClosePort(domain.PortMapping{Protocol: "TCP", ExternalPort: 8080})
 	if err != nil {
 		t.Fatalf("ClosePort() error = %v", err)
 	}
