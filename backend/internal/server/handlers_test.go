@@ -57,42 +57,33 @@ func TestHealthAndReadEndpoints(t *testing.T) {
 		settingsValue: config.Config{ListenAddr: "127.0.0.1:8080", AutoDiscover: config.BoolPtr(true)},
 	}
 	srv := New("127.0.0.1:8080", nil, svc)
-	type want struct {
-		status     int
-		healthOK   bool
-		discovered bool
-		controlURL string
-		listenAddr string
-	}
 	tests := []struct {
-		name string
-		path string
-		want want
+		name           string
+		path           string
+		wantStatus     int
+		wantHealthOK   bool
+		wantDiscovered bool
+		wantControlURL string
+		wantListenAddr string
 	}{
 		{
-			name: "ヘルスチェックを返す",
-			path: "/api/health",
-			want: want{
-				status:   http.StatusOK,
-				healthOK: true,
-			},
+			name:         "ヘルスチェックを返す",
+			path:         "/api/health",
+			wantStatus:   http.StatusOK,
+			wantHealthOK: true,
 		},
 		{
-			name: "ステータスを返す",
-			path: "/api/status",
-			want: want{
-				status:     http.StatusOK,
-				discovered: true,
-				controlURL: svc.statusValue.ControlURL,
-			},
+			name:           "ステータスを返す",
+			path:           "/api/status",
+			wantStatus:     http.StatusOK,
+			wantDiscovered: true,
+			wantControlURL: svc.statusValue.ControlURL,
 		},
 		{
-			name: "設定を返す",
-			path: "/api/settings",
-			want: want{
-				status:     http.StatusOK,
-				listenAddr: svc.settingsValue.ListenAddr,
-			},
+			name:           "設定を返す",
+			path:           "/api/settings",
+			wantStatus:     http.StatusOK,
+			wantListenAddr: svc.settingsValue.ListenAddr,
 		},
 	}
 
@@ -101,31 +92,31 @@ func TestHealthAndReadEndpoints(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
 			rec := httptest.NewRecorder()
 			srv.Handler().ServeHTTP(rec, req)
-			if rec.Code != tt.want.status {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.want.status)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
 
 			switch tt.path {
 			case "/api/health":
 				var got HealthResponse
 				decodeJSON(t, rec.Body, &got)
-				if got.Ok != tt.want.healthOK {
-					t.Fatalf("HealthResponse.Ok = %v, want %v", got.Ok, tt.want.healthOK)
+				if got.Ok != tt.wantHealthOK {
+					t.Fatalf("HealthResponse.Ok = %v, want %v", got.Ok, tt.wantHealthOK)
 				}
 			case "/api/status":
 				var got StatusResponse
 				decodeJSON(t, rec.Body, &got)
-				if got.Discovered != tt.want.discovered {
-					t.Fatalf("StatusResponse.Discovered = %v, want %v", got.Discovered, tt.want.discovered)
+				if got.Discovered != tt.wantDiscovered {
+					t.Fatalf("StatusResponse.Discovered = %v, want %v", got.Discovered, tt.wantDiscovered)
 				}
-				if got.ControlURL != tt.want.controlURL {
-					t.Fatalf("StatusResponse.ControlURL = %q, want %q", got.ControlURL, tt.want.controlURL)
+				if got.ControlURL != tt.wantControlURL {
+					t.Fatalf("StatusResponse.ControlURL = %q, want %q", got.ControlURL, tt.wantControlURL)
 				}
 			case "/api/settings":
 				var got config.Config
 				decodeJSON(t, rec.Body, &got)
-				if got.ListenAddr != tt.want.listenAddr {
-					t.Fatalf("Config.ListenAddr = %q, want %q", got.ListenAddr, tt.want.listenAddr)
+				if got.ListenAddr != tt.wantListenAddr {
+					t.Fatalf("Config.ListenAddr = %q, want %q", got.ListenAddr, tt.wantListenAddr)
 				}
 			}
 		})
@@ -133,59 +124,50 @@ func TestHealthAndReadEndpoints(t *testing.T) {
 }
 
 func TestMutatingEndpointsBindRequests(t *testing.T) {
-	type want struct {
-		status       int
-		openRequest  domain.PortMapping
-		closeRequest domain.PortMapping
-		settingsReq  config.Config
-	}
 	tests := []struct {
-		name string
-		path string
-		body []byte
-		want want
+		name                     string
+		path                     string
+		body                     []byte
+		wantStatus               int
+		wantOpenRequest          domain.PortMapping
+		wantCloseRequest         domain.PortMapping
+		wantSettingsListenAddr   string
+		wantSettingsAutoDiscover *bool
 	}{
 		{
-			name: "探索を受け付ける",
-			path: "/api/discover",
-			want: want{
-				status: http.StatusAccepted,
+			name:       "探索を受け付ける",
+			path:       "/api/discover",
+			wantStatus: http.StatusAccepted,
+		},
+		{
+			name:       "ポート開放リクエストを束縛する",
+			path:       "/api/ports/open",
+			body:       []byte(`{"protocol":"TCP","external_port":8080,"internal_ip":"192.168.1.20","internal_port":8080}`),
+			wantStatus: http.StatusAccepted,
+			wantOpenRequest: domain.PortMapping{
+				Protocol:     "TCP",
+				ExternalPort: 8080,
+				InternalIP:   "192.168.1.20",
+				InternalPort: 8080,
 			},
 		},
 		{
-			name: "ポート開放リクエストを束縛する",
-			path: "/api/ports/open",
-			body: []byte(`{"protocol":"TCP","external_port":8080,"internal_ip":"192.168.1.20","internal_port":8080}`),
-			want: want{
-				status: http.StatusAccepted,
-				openRequest: domain.PortMapping{
-					Protocol:     "TCP",
-					ExternalPort: 8080,
-					InternalIP:   "192.168.1.20",
-					InternalPort: 8080,
-				},
+			name:       "ポート閉鎖リクエストを束縛する",
+			path:       "/api/ports/close",
+			body:       []byte(`{"protocol":"UDP","external_port":5353}`),
+			wantStatus: http.StatusAccepted,
+			wantCloseRequest: domain.PortMapping{
+				Protocol:     "UDP",
+				ExternalPort: 5353,
 			},
 		},
 		{
-			name: "ポート閉鎖リクエストを束縛する",
-			path: "/api/ports/close",
-			body: []byte(`{"protocol":"UDP","external_port":5353}`),
-			want: want{
-				status: http.StatusAccepted,
-				closeRequest: domain.PortMapping{
-					Protocol:     "UDP",
-					ExternalPort: 5353,
-				},
-			},
-		},
-		{
-			name: "設定更新リクエストを束縛する",
-			path: "/api/settings",
-			body: []byte(`{"listen_addr":"127.0.0.1:9090","auto_discover":false}`),
-			want: want{
-				status:      http.StatusOK,
-				settingsReq: config.Config{ListenAddr: "127.0.0.1:9090", AutoDiscover: config.BoolPtr(false)},
-			},
+			name:                     "設定更新リクエストを束縛する",
+			path:                     "/api/settings",
+			body:                     []byte(`{"listen_addr":"127.0.0.1:9090","auto_discover":false}`),
+			wantStatus:               http.StatusOK,
+			wantSettingsListenAddr:   "127.0.0.1:9090",
+			wantSettingsAutoDiscover: config.BoolPtr(false),
 		},
 	}
 
@@ -198,23 +180,23 @@ func TestMutatingEndpointsBindRequests(t *testing.T) {
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 			rec := httptest.NewRecorder()
 			srv.Handler().ServeHTTP(rec, req)
-			if rec.Code != tt.want.status {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.want.status)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
-			if svc.openRequest != tt.want.openRequest {
-				t.Fatalf("OpenPort() request = %+v, want %+v", svc.openRequest, tt.want.openRequest)
+			if svc.openRequest != tt.wantOpenRequest {
+				t.Fatalf("OpenPort() request = %+v, want %+v", svc.openRequest, tt.wantOpenRequest)
 			}
-			if svc.closeRequest != tt.want.closeRequest {
-				t.Fatalf("ClosePort() request = %+v, want %+v", svc.closeRequest, tt.want.closeRequest)
+			if svc.closeRequest != tt.wantCloseRequest {
+				t.Fatalf("ClosePort() request = %+v, want %+v", svc.closeRequest, tt.wantCloseRequest)
 			}
-			if svc.settingsReq.ListenAddr != tt.want.settingsReq.ListenAddr {
-				t.Fatalf("UpdateSettings() ListenAddr = %q, want %q", svc.settingsReq.ListenAddr, tt.want.settingsReq.ListenAddr)
+			if svc.settingsReq.ListenAddr != tt.wantSettingsListenAddr {
+				t.Fatalf("UpdateSettings() ListenAddr = %q, want %q", svc.settingsReq.ListenAddr, tt.wantSettingsListenAddr)
 			}
-			if (svc.settingsReq.AutoDiscover == nil) != (tt.want.settingsReq.AutoDiscover == nil) {
-				t.Fatalf("UpdateSettings() AutoDiscover nil mismatch: got=%v want=%v", svc.settingsReq.AutoDiscover, tt.want.settingsReq.AutoDiscover)
+			if (svc.settingsReq.AutoDiscover == nil) != (tt.wantSettingsAutoDiscover == nil) {
+				t.Fatalf("UpdateSettings() AutoDiscover nil mismatch: got=%v want=%v", svc.settingsReq.AutoDiscover, tt.wantSettingsAutoDiscover)
 			}
-			if svc.settingsReq.AutoDiscover != nil && tt.want.settingsReq.AutoDiscover != nil && *svc.settingsReq.AutoDiscover != *tt.want.settingsReq.AutoDiscover {
-				t.Fatalf("UpdateSettings() AutoDiscover = %v, want %v", *svc.settingsReq.AutoDiscover, *tt.want.settingsReq.AutoDiscover)
+			if svc.settingsReq.AutoDiscover != nil && tt.wantSettingsAutoDiscover != nil && *svc.settingsReq.AutoDiscover != *tt.wantSettingsAutoDiscover {
+				t.Fatalf("UpdateSettings() AutoDiscover = %v, want %v", *svc.settingsReq.AutoDiscover, *tt.wantSettingsAutoDiscover)
 			}
 		})
 	}
