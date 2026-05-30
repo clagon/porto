@@ -17,7 +17,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.ts', 'vite.config.ts'],
+    files: ['src/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       parser: tseslint.parser,
@@ -27,6 +27,20 @@ export default tseslint.config(
       },
       globals: {
         ...globals.browser,
+      },
+    },
+  },
+  {
+    files: ['vite.config.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+      globals: {
+        ...globals.node,
       },
     },
   },
