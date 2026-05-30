@@ -22,7 +22,7 @@
 </script>
 
 <div class="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
-  <main class="w-full max-w-md mx-auto relative z-[101]">
+  <main class="w-full max-w-md mx-auto relative z-[101] max-h-[calc(100vh-2rem)] overflow-y-auto">
     <button class="inline-flex items-center gap-2 text-white/80 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-full transition-all duration-200 mb-8 font-body-md group focus:outline-none focus:ring-2 focus:ring-white/20" on:click={close}>
       <span class="material-symbols-outlined group-hover:-translate-x-1 transition-transform duration-200 text-lg">arrow_back</span>
       ダッシュボードに戻る
