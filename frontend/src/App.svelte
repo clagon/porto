@@ -25,6 +25,8 @@
   let editingPort = null;
   let isDiscovering = false;
 
+  const startupRefreshDelays = [500, 1500, 3000];
+
   async function refresh() {
     error = '';
     busy.set(true);
@@ -33,8 +35,10 @@
       status.set(nextStatus);
       settings.set(nextSettings);
       form = nextSettings;
+      return { status: nextStatus, settings: nextSettings };
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
+      return null;
     } finally {
       busy.set(false);
     }
@@ -50,6 +54,7 @@
       status.set(nextStatus);
       settings.set(nextSettings);
       form = nextSettings;
+      return { status: nextStatus, settings: nextSettings };
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
@@ -132,7 +137,31 @@
     isSettingsModalOpen = false;
   }
 
-  onMount(refresh);
+  function scheduleStartupRefresh() {
+    let stopped = false;
+    const timers = [];
+
+    refresh().then((result) => {
+      if (stopped || result?.status.discovered || !result?.settings.auto_discover) return;
+
+      // NOTE: Backend auto-discovery runs asynchronously at startup. Poll status only,
+      // without triggering another discovery, so the dashboard catches the completed result.
+      for (const delay of startupRefreshDelays) {
+        timers.push(setTimeout(async () => {
+          if (stopped) return;
+          const next = await refresh();
+          if (next?.status.discovered) stopped = true;
+        }, delay));
+      }
+    });
+
+    return () => {
+      stopped = true;
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }
+
+  onMount(scheduleStartupRefresh);
 </script>
 
 {#if error}
