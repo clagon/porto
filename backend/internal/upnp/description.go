@@ -4,11 +4,14 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 )
+
+const maxRootDescriptionBytes = 1 << 20
 
 type locationFetcher func(string) ([]byte, error)
 
@@ -55,18 +58,50 @@ func fallbackLocationFetcher(location string) ([]byte, error) {
 }
 
 func fetchLocation(location string, timeout time.Duration) ([]byte, error) {
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Get(location)
+	locationURL, err := parseAllowedUPnPURL(location)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{
+		Timeout:       timeout,
+		CheckRedirect: validateUPnPRedirect,
+	}
+	resp, err := client.Get(locationURL.String())
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := readRootDescriptionBody(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("fetch root description failed: %s", resp.Status)
+	}
+	return data, nil
+}
+
+func validateUPnPRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) == 0 {
+		return nil
+	}
+	if !sameURLHost(via[0].URL, req.URL) {
+		return fmt.Errorf("redirect target host %q does not match location host %q", req.URL.Host, via[0].URL.Host)
+	}
+	if _, err := parseAllowedUPnPURL(req.URL.String()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func readRootDescriptionBody(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxRootDescriptionBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxRootDescriptionBytes {
+		return nil, fmt.Errorf("root description exceeds %d bytes", maxRootDescriptionBytes)
 	}
 	return data, nil
 }
@@ -87,7 +122,7 @@ func ParseRootDevice(data []byte, baseURL string) (DiscoveryResult, error) {
 	if resolveBase == "" {
 		resolveBase = baseURL
 	}
-	resolved, err := resolveControlURL(resolveBase, selected.ControlURL)
+	resolved, err := resolveControlURL(baseURL, resolveBase, selected.ControlURL)
 	if err != nil {
 		return DiscoveryResult{}, err
 	}
@@ -128,32 +163,72 @@ func selectService(services []service) (service, bool) {
 	return best, true
 }
 
-func resolveControlURL(baseURL, controlURL string) (string, error) {
+func resolveControlURL(locationURL, baseURL, controlURL string) (string, error) {
 	controlURL = strings.TrimSpace(controlURL)
 	if controlURL == "" {
 		return "", fmt.Errorf("empty control url")
+	}
+	location, err := parseAllowedUPnPURL(locationURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid location url: %w", err)
 	}
 	base, err := url.Parse(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("parse base url %q: %w", baseURL, err)
 	}
-	if u, err := url.Parse(controlURL); err == nil && u.IsAbs() {
-		// description と別ホストの control URL は SSRF 的な挙動になるため拒否する。
-		if !sameURLHost(base, u) {
-			return "", fmt.Errorf("control url host %q does not match location host %q", u.Host, base.Host)
-		}
-		return controlURL, nil
+	if base.IsAbs() && !sameURLHost(location, base) {
+		return "", fmt.Errorf("urlbase host %q does not match location host %q", base.Host, location.Host)
 	}
 	ref, err := url.Parse(controlURL)
 	if err != nil {
 		return "", fmt.Errorf("parse control url %q: %w", controlURL, err)
 	}
-	return base.ResolveReference(ref).String(), nil
+	resolved := base.ResolveReference(ref)
+	// description と別ホストの URLBase/controlURL は SSRF 的な挙動になるため拒否する。
+	if !sameURLHost(location, resolved) {
+		return "", fmt.Errorf("control url host %q does not match location host %q", resolved.Host, location.Host)
+	}
+	if _, err := parseAllowedUPnPURL(resolved.String()); err != nil {
+		return "", fmt.Errorf("invalid control url: %w", err)
+	}
+	return resolved.String(), nil
 }
 
 func sameURLHost(a, b *url.URL) bool {
 	if a == nil || b == nil {
 		return false
 	}
-	return strings.EqualFold(a.Host, b.Host)
+	return strings.EqualFold(a.Hostname(), b.Hostname())
+}
+
+func parseAllowedUPnPURL(rawURL string) (*url.URL, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("parse url %q: %w", rawURL, err)
+	}
+	if u.Scheme != "http" {
+		return nil, fmt.Errorf("unsupported url scheme %q", u.Scheme)
+	}
+	if u.Host == "" {
+		return nil, fmt.Errorf("missing url host")
+	}
+	host := u.Hostname()
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return nil, fmt.Errorf("url host %q is not an IP address", host)
+	}
+	if !isAllowedUPnPIP(ip) {
+		return nil, fmt.Errorf("url host %q is not an allowed local UPnP address", host)
+	}
+	return u, nil
+}
+
+func isAllowedUPnPIP(ip net.IP) bool {
+	if ip == nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsMulticast() {
+		return false
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		return ip4.IsPrivate() || ip4.IsLinkLocalUnicast()
+	}
+	return ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }

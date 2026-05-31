@@ -1,12 +1,12 @@
 package upnp
 
 import (
-	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -106,6 +106,23 @@ func TestParseRootDevice(t *testing.T) {
 			wantServiceType: "urn:schemas-upnp-org:service:WANIPConnection:1",
 		},
 		{
+			name: "urlbase different host is rejected",
+			xml: `<?xml version="1.0"?>
+<root>
+  <URLBase>http://192.168.1.2:5431/</URLBase>
+  <device>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:WANIPConnection:1</serviceType>
+        <controlURL>upnp/control/WANIPConn1</controlURL>
+      </service>
+    </serviceList>
+  </device>
+</root>`,
+			baseURL: "http://192.168.1.1:1900/root.xml",
+			wantErr: true,
+		},
+		{
 			name:    "malformed xml",
 			xml:     "<xml",
 			baseURL: "http://192.168.1.1:1900/root.xml",
@@ -151,27 +168,101 @@ func TestDiscoverFromLocation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_, _ = io.WriteString(w, readTestData(t, "rootdesc-wanipconnection2.xml"))
-			}))
-			defer server.Close()
+			location := "http://192.168.1.1:1900/root.xml"
 
-			got, err := discoverFromLocation(server.URL, func(location string) ([]byte, error) {
-				resp, err := http.Get(location)
-				if err != nil {
-					return nil, err
+			got, err := discoverFromLocation(location, func(gotLocation string) ([]byte, error) {
+				if gotLocation != location {
+					t.Fatalf("location = %q, want %q", gotLocation, location)
 				}
-				defer func() { _ = resp.Body.Close() }()
-				return io.ReadAll(resp.Body)
+				return []byte(readTestData(t, "rootdesc-wanipconnection2.xml")), nil
 			})
 			if err != nil {
 				t.Fatalf("discoverFromLocation() error = %v", err)
 			}
-			if got.ControlURL != server.URL+"/upnp/control/WANIPConn2" {
+			if got.ControlURL != "http://192.168.1.1:1900/upnp/control/WANIPConn2" {
 				t.Fatalf("ControlURL = %q", got.ControlURL)
 			}
 		})
 	}
+}
+
+func TestParseAllowedUPnPURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		rawURL  string
+		wantErr bool
+	}{
+		{name: "private ipv4", rawURL: "http://192.168.1.1:1900/root.xml"},
+		{name: "link local ipv4", rawURL: "http://169.254.10.1/root.xml"},
+		{name: "unique local ipv6", rawURL: "http://[fd00::1]:1900/root.xml"},
+		{name: "link local ipv6", rawURL: "http://[fe80::1]:1900/root.xml"},
+		{name: "https rejected", rawURL: "https://192.168.1.1/root.xml", wantErr: true},
+		{name: "hostname rejected", rawURL: "http://router.local/root.xml", wantErr: true},
+		{name: "loopback rejected", rawURL: "http://127.0.0.1/root.xml", wantErr: true},
+		{name: "unspecified rejected", rawURL: "http://0.0.0.0/root.xml", wantErr: true},
+		{name: "multicast rejected", rawURL: "http://239.255.255.250/root.xml", wantErr: true},
+		{name: "public rejected", rawURL: "http://8.8.8.8/root.xml", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseAllowedUPnPURL(tt.rawURL)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("parseAllowedUPnPURL() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseAllowedUPnPURL() error = %v", err)
+			}
+		})
+	}
+}
+
+func TestReadRootDescriptionBodyLimit(t *testing.T) {
+	_, err := readRootDescriptionBody(strings.NewReader(strings.Repeat("x", maxRootDescriptionBytes+1)))
+	if err == nil {
+		t.Fatal("readRootDescriptionBody() error = nil, want size limit error")
+	}
+}
+
+func TestValidateUPnPRedirect(t *testing.T) {
+	from := &http.Request{URL: mustParseURL(t, "http://192.168.1.1:1900/root.xml")}
+	tests := []struct {
+		name    string
+		to      string
+		wantErr bool
+	}{
+		{name: "same host", to: "http://192.168.1.1:5000/rootDesc.xml"},
+		{name: "different host", to: "http://192.168.1.2:1900/root.xml", wantErr: true},
+		{name: "public host", to: "http://8.8.8.8/root.xml", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &http.Request{URL: mustParseURL(t, tt.to)}
+			err := validateUPnPRedirect(req, []*http.Request{from})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("validateUPnPRedirect() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("validateUPnPRedirect() error = %v", err)
+			}
+		})
+	}
+}
+
+func mustParseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }
 
 func TestLiveDiscover(t *testing.T) {
