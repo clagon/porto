@@ -1,9 +1,26 @@
 import type { HealthResponse, PortMapping, Settings, StatusResponse } from './types';
 
+function browserToken(): string {
+  if (typeof document === 'undefined') {
+    return '';
+  }
+  return document.querySelector<HTMLMetaElement>('meta[name="porto-browser-token"]')?.content ?? '';
+}
+
+function requestHeaders(init?: RequestInit): Headers {
+  const headers = new Headers(init?.headers);
+  headers.set('Content-Type', 'application/json');
+  const token = browserToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return headers;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
     ...init,
+    headers: requestHeaders(init),
   });
   if (!res.ok) {
     let errMsg = `${path} failed: ${res.status}`;

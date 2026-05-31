@@ -3,14 +3,15 @@ package server
 import "github.com/labstack/echo/v4"
 
 // registerRoutes は、Echo Web フレームワークインスタンスに対して API エンドポイントとSPA静的ファイルのルートを登録します。
-func registerRoutes(e *echo.Echo, svc apiService) {
+func registerRoutes(e *echo.Echo, svc apiService, browserToken string) {
 	h := newAPIHandlers(svc)
+	requireBrowserToken := browserTokenMiddleware(browserToken)
 	e.GET("/api/health", h.health)
 	e.GET("/api/status", h.status)
-	e.POST("/api/discover", h.discover)
-	e.POST("/api/ports/open", h.portsOpen)
-	e.POST("/api/ports/close", h.portsClose)
+	e.POST("/api/discover", h.discover, requireBrowserToken)
+	e.POST("/api/ports/open", h.portsOpen, requireBrowserToken)
+	e.POST("/api/ports/close", h.portsClose, requireBrowserToken)
 	e.GET("/api/settings", h.getSettings)
-	e.POST("/api/settings", h.updateSettings)
-	e.GET("/*", staticHandler())
+	e.POST("/api/settings", h.updateSettings, requireBrowserToken)
+	e.GET("/*", staticHandler(browserToken))
 }

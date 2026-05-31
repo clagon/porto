@@ -48,5 +48,5 @@ Treat common sensitive ports carefully, especially:
 
 - confirm the app is still bound to `127.0.0.1`
 - confirm `config.json` is beside the binary you launched
-- confirm the browser token is still valid
+- confirm the browser token injected into the SPA is still valid and sent as `Authorization: Bearer ...` on mutating API requests
 - re-run discovery before retrying a mapping
