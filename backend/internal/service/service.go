@@ -44,6 +44,7 @@ type Options struct {
 // Service は、Porto のポートマッピング機能の中核であり、ルーター探索、ポートの開閉処理、メモリ上での状態の同期を担当するドメインサービスです。
 type Service struct {
 	mu                sync.RWMutex
+	portMu            sync.Mutex
 	cfg               config.Config
 	configPath        string
 	settingsStore     SettingsStore
@@ -215,6 +216,10 @@ func (s *Service) OpenPort(mapping domain.PortMapping) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+
+	s.portMu.Lock()
+	defer s.portMu.Unlock()
+
 	if err := mapper.AddPortMapping(mapping); err != nil {
 		return Status{}, err
 	}
@@ -243,6 +248,10 @@ func (s *Service) ClosePort(mapping domain.PortMapping) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+
+	s.portMu.Lock()
+	defer s.portMu.Unlock()
+
 	if err := mapper.DeletePortMapping(mapping.Protocol, mapping.ExternalPort); err != nil {
 		return Status{}, err
 	}
@@ -415,10 +424,13 @@ func (s *Service) syncActivePorts(mapper domain.PortMapper, localIP string) {
 		return
 	}
 
+	s.portMu.Lock()
+	defer s.portMu.Unlock()
+
 	const maxPortMappingEntries = 256
 
 	var syncedPorts []domain.PortMapping
-	for i := 0; i < maxPortMappingEntries; i++ {
+	for i := 0; i <= maxPortMappingEntries; i++ {
 		entry, err := mapper.GetGenericPortMappingEntry(i)
 		if err != nil {
 			if errors.Is(err, domain.ErrNoPortMappingEntry) {
@@ -434,6 +446,9 @@ func (s *Service) syncActivePorts(mapper domain.PortMapper, localIP string) {
 				s.logger.Warn("failed to fetch port mapping entries from router", "index", i, "error", err)
 			}
 			return
+		}
+		if i == maxPortMappingEntries {
+			break
 		}
 
 		// このローカルPCのIPアドレス宛の転送ルールのみを抽出
