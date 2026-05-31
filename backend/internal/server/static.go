@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"html"
 	"io/fs"
 	"net/http"
 	"path"
@@ -16,7 +17,7 @@ import (
 var assetsFS fs.FS = assets.FS
 
 // staticHandler は、埋め込まれたフロントエンドSPA静的ファイルを配信し、存在しないルートへのリクエスト時には `index.html` にフォールバックするSPA用ルーターハンドラーを提供します。
-func staticHandler() echo.HandlerFunc {
+func staticHandler(browserToken string) echo.HandlerFunc {
 	sub, err := fs.Sub(assetsFS, "static")
 	if err != nil {
 		return func(c echo.Context) error {
@@ -37,8 +38,23 @@ func staticHandler() echo.HandlerFunc {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusNotFound)
 		}
+		if path.Clean(name) == "index.html" {
+			data = injectBrowserToken(data, browserToken)
+		}
 
 		http.ServeContent(c.Response().Writer, c.Request(), path.Base(name), time.Time{}, bytes.NewReader(data))
 		return nil
 	}
+}
+
+func injectBrowserToken(data []byte, token string) []byte {
+	if token == "" {
+		return data
+	}
+	marker := []byte("</head>")
+	if !bytes.Contains(data, marker) {
+		return data
+	}
+	meta := []byte(`<meta name="porto-browser-token" content="` + html.EscapeString(token) + `">`)
+	return bytes.Replace(data, marker, append(meta, marker...), 1)
 }

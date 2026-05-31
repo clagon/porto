@@ -12,9 +12,10 @@ import (
 
 // Server は、アプリケーションで使用される HTTP ルーターとリスナー設定をカプセル化する構造体です。
 type Server struct {
-	addr   string
-	echo   *echo.Echo
-	logger *slog.Logger
+	addr         string
+	echo         *echo.Echo
+	logger       *slog.Logger
+	browserToken string
 }
 
 // New は、指定されたリスンアドレス、ロガー、および抽象サービスインスタンスを使用して HTTP サーバーインスタンスを構築します。
@@ -23,13 +24,18 @@ func New(addr string, logger *slog.Logger, svc apiService) *Server {
 		logger = slog.Default()
 	}
 
+	browserToken, err := generateToken(32)
+	if err != nil {
+		logger.Error("failed to generate browser token", "error", err)
+	}
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 	e.Use(loggingMiddleware(logger))
-	registerRoutes(e, svc)
+	registerRoutes(e, svc, browserToken, addr)
 
-	return &Server{addr: addr, echo: e, logger: logger}
+	return &Server{addr: addr, echo: e, logger: logger, browserToken: browserToken}
 }
 
 // Addr は、サーバーがバインドされている、またはバインド予定のリスンアドレスを返します。
@@ -38,6 +44,14 @@ func (s *Server) Addr() string {
 		return ""
 	}
 	return s.addr
+}
+
+// BrowserToken は、同一プロセス内のSPAと変更系APIを結び付ける起動時トークンを返します。
+func (s *Server) BrowserToken() string {
+	if s == nil {
+		return ""
+	}
+	return s.browserToken
 }
 
 // Handler は、標準の http.Handler として機能するサーバーの HTTP ハンドラーを返します。

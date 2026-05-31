@@ -51,6 +51,10 @@ func decodeJSON[T any](t *testing.T, body *bytes.Buffer, dst *T) {
 	}
 }
 
+func authorizeRequest(req *http.Request, srv *Server) {
+	req.Header.Set(echo.HeaderAuthorization, "Bearer "+srv.BrowserToken())
+}
+
 func TestHealthAndReadEndpoints(t *testing.T) {
 	svc := &fakeAPIService{
 		statusValue:   service.Status{Discovered: true, ControlURL: "http://192.168.1.1/control"},
@@ -178,6 +182,7 @@ func TestMutatingEndpointsBindRequests(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, tt.path, bytes.NewReader(tt.body))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			authorizeRequest(req, srv)
 			rec := httptest.NewRecorder()
 			srv.Handler().ServeHTTP(rec, req)
 			if rec.Code != tt.wantStatus {
@@ -228,6 +233,95 @@ func TestEndpointErrorConversion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, bytes.NewReader([]byte(tt.body)))
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			authorizeRequest(req, srv)
+			rec := httptest.NewRecorder()
+			srv.Handler().ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+func TestMutatingEndpointsRequireBrowserToken(t *testing.T) {
+	svc := &fakeAPIService{statusValue: service.Status{Discovered: true}}
+	srv := New("127.0.0.1:8080", nil, svc)
+
+	tests := []struct {
+		name       string
+		configure  func(*http.Request)
+		wantStatus int // httptest.ResponseRecorder.Code
+	}{
+		{
+			name:       "トークン欠落を拒否する",
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "トークン不一致を拒否する",
+			configure: func(req *http.Request) {
+				req.Header.Set(echo.HeaderAuthorization, "Bearer wrong-token")
+			},
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name: "同一ローカルOriginを許可する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Header.Set(echo.HeaderOrigin, "http://127.0.0.1:8080")
+			},
+			wantStatus: http.StatusAccepted,
+		},
+		{
+			name: "クロスオリジンを拒否する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Header.Set(echo.HeaderOrigin, "https://example.com")
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "DNSリバインディング風のHostとOriginを拒否する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Host = "attacker.example:8080"
+				req.Header.Set(echo.HeaderOrigin, "http://attacker.example:8080")
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "異なるスキームのOriginを拒否する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Header.Set(echo.HeaderOrigin, "https://127.0.0.1:8080")
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "クロスサイトFetchを拒否する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Header.Set("Sec-Fetch-Site", "cross-site")
+			},
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name: "JSON以外を拒否する",
+			configure: func(req *http.Request) {
+				authorizeRequest(req, srv)
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			},
+			wantStatus: http.StatusUnsupportedMediaType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/discover", bytes.NewReader(nil))
+			req.Host = "127.0.0.1:8080"
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			if tt.configure != nil {
+				tt.configure(req)
+			}
 			rec := httptest.NewRecorder()
 			srv.Handler().ServeHTTP(rec, req)
 			if rec.Code != tt.wantStatus {

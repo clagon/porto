@@ -12,7 +12,7 @@ import (
 func TestStatic(t *testing.T) {
 	origAssetsFS := assetsFS
 	assetsFS = fstest.MapFS{
-		"static/index.html": {Data: []byte("<!doctype html><title>port-mapper</title>")},
+		"static/index.html": {Data: []byte("<!doctype html><html><head><title>port-mapper</title></head><body></body></html>")},
 	}
 	t.Cleanup(func() { assetsFS = origAssetsFS })
 
@@ -23,6 +23,7 @@ func TestStatic(t *testing.T) {
 		wantBodySubstring string // static HTML body substring
 	}{
 		{name: "root serves index", path: "/", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper"},
+		{name: "root injects browser token", path: "/", wantStatus: http.StatusOK, wantBodySubstring: `meta name="porto-browser-token"`},
 		{name: "spa fallback serves index", path: "/dashboard", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper"},
 	}
 
