@@ -23,19 +23,42 @@
   let isAddModalOpen = false;
   let isSettingsModalOpen = false;
   let editingPort = null;
+  let isDiscovering = false;
+
+  const startupRefreshDelays = [500, 1500, 3000];
 
   async function refresh() {
     error = '';
     busy.set(true);
     try {
-      await api.discover();
       const [nextStatus, nextSettings] = await Promise.all([api.status(), api.getSettings()]);
       status.set(nextStatus);
       settings.set(nextSettings);
       form = nextSettings;
+      return { status: nextStatus, settings: nextSettings };
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      return null;
+    } finally {
+      busy.set(false);
+    }
+  }
+
+  async function discover() {
+    error = '';
+    busy.set(true);
+    isDiscovering = true;
+    try {
+      const nextStatus = await api.discover();
+      const nextSettings = await api.getSettings();
+      status.set(nextStatus);
+      settings.set(nextSettings);
+      form = nextSettings;
+      return { status: nextStatus, settings: nextSettings };
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     } finally {
+      isDiscovering = false;
       busy.set(false);
     }
   }
@@ -114,7 +137,31 @@
     isSettingsModalOpen = false;
   }
 
-  onMount(refresh);
+  function scheduleStartupRefresh() {
+    let stopped = false;
+    const timers = [];
+
+    refresh().then((result) => {
+      if (stopped || result?.status.discovered || !result?.settings.auto_discover) return;
+
+      // NOTE: Backend auto-discovery runs asynchronously at startup. Poll status only,
+      // without triggering another discovery, so the dashboard catches the completed result.
+      for (const delay of startupRefreshDelays) {
+        timers.push(setTimeout(async () => {
+          if (stopped) return;
+          const next = await refresh();
+          if (next?.status.discovered) stopped = true;
+        }, delay));
+      }
+    });
+
+    return () => {
+      stopped = true;
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }
+
+  onMount(scheduleStartupRefresh);
 </script>
 
 {#if error}
@@ -152,7 +199,9 @@
 <Dashboard
   status={$status}
   busy={$busy}
+  discovering={isDiscovering}
   refresh={refresh}
+  discover={discover}
   on:addPort={() => { editingPort = null; isAddModalOpen = true; }}
   on:editPort={(event) => { editingPort = event.detail; isAddModalOpen = true; }}
   on:closePort={closePort}
