@@ -90,10 +90,11 @@ func discoverFromSSDPResponses(responses []ssdpResponse, noMatchMessage string) 
 		if err == nil {
 			return result, nil
 		}
+		lastErr = fmt.Errorf("SSDP location %q for search target %q and service %q: %w", response.Location, response.SearchTarget, response.ST, err)
 	}
 
 	if lastErr != nil {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %w", ErrNoGateway, lastErr)
 	}
 	if len(responses) > 0 && wfaCount == len(responses) {
 		return DiscoveryResult{}, fmt.Errorf("%w: %w", ErrNoGateway, errOnlyWFADevices)

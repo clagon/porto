@@ -173,3 +173,41 @@ func TestDiscoverFromSSDPResponsesWFAOnlyWrapsNoGateway(t *testing.T) {
 		})
 	}
 }
+
+func TestDiscoverFromSSDPResponsesKeepsLastFailureReason(t *testing.T) {
+	tests := []struct {
+		name      string
+		responses []ssdpResponse
+		want      []string
+	}{
+		{
+			name: "non wfa candidate failure wraps no gateway with context",
+			responses: []ssdpResponse{
+				{
+					Location:     "http://203.0.113.1/root.xml",
+					ST:           "upnp:rootdevice",
+					SearchTarget: "ssdp:all",
+				},
+			},
+			want: []string{
+				`SSDP location "http://203.0.113.1/root.xml"`,
+				`search target "ssdp:all"`,
+				`service "upnp:rootdevice"`,
+				`url host "203.0.113.1" is not an allowed local UPnP address`,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := discoverFromSSDPResponses(tt.responses, "no matching SSDP responses")
+			if !errors.Is(err, ErrNoGateway) {
+				t.Fatalf("error = %v, want ErrNoGateway", err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error = %v, want substring %q", err, want)
+				}
+			}
+		})
+	}
+}
