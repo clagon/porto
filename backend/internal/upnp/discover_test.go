@@ -1,6 +1,8 @@
 package upnp
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,6 +19,59 @@ func readTestData(t *testing.T, name string) string {
 		t.Fatalf("ReadFile(%s): %v", name, err)
 	}
 	return string(b)
+}
+
+func TestDiscoveryFailureErrorKeepsSSDPContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		ssdpErr     error
+		sawOnlyWFA  bool
+		fallbackErr error
+		want        []string
+	}{
+		{
+			name: "ssdp candidate failure survives fallback failure",
+			ssdpErr: fmt.Errorf(
+				"%w: SSDP location %q for search target %q and service %q: %w",
+				ErrNoGateway,
+				"http://203.0.113.1/root.xml",
+				"ssdp:all",
+				"upnp:rootdevice",
+				errors.New("parse root device xml: broken"),
+			),
+			fallbackErr: errors.New("no gateway description candidates succeeded"),
+			want: []string{
+				"SSDP discovery failed",
+				`SSDP location "http://203.0.113.1/root.xml"`,
+				`search target "ssdp:all"`,
+				`service "upnp:rootdevice"`,
+				"parse root device xml: broken",
+				"fallback probes failed: no gateway description candidates succeeded",
+			},
+		},
+		{
+			name:        "wfa only behavior is preserved",
+			sawOnlyWFA:  true,
+			fallbackErr: errors.New("no gateway description candidates succeeded"),
+			want: []string{
+				errOnlyWFADevices.Error(),
+				"fallback probes failed: no gateway description candidates succeeded",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := discoveryFailureError(tt.ssdpErr, tt.sawOnlyWFA, tt.fallbackErr)
+			if !errors.Is(err, ErrNoGateway) {
+				t.Fatalf("error = %v, want ErrNoGateway", err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error = %v, want substring %q", err, want)
+				}
+			}
+		})
+	}
 }
 
 func TestParseRootDevice(t *testing.T) {

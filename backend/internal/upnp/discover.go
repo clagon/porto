@@ -23,6 +23,7 @@ func Discover() (DiscoveryResult, error) {
 	}
 
 	sawOnlyWFA := false
+	var ssdpErr error
 	for _, iface := range ifaces {
 		result, err := discoverFromInterface(iface)
 		if err == nil {
@@ -30,6 +31,10 @@ func Discover() (DiscoveryResult, error) {
 		}
 		if errors.Is(err, errOnlyWFADevices) {
 			sawOnlyWFA = true
+			continue
+		}
+		if errors.Is(err, ErrNoGateway) {
+			ssdpErr = err
 		}
 	}
 
@@ -42,6 +47,10 @@ func Discover() (DiscoveryResult, error) {
 			}
 			if errors.Is(err, errOnlyWFADevices) {
 				sawOnlyWFA = true
+				continue
+			}
+			if errors.Is(err, ErrNoGateway) {
+				ssdpErr = err
 			}
 		}
 	}
@@ -55,10 +64,17 @@ func Discover() (DiscoveryResult, error) {
 	if err == nil {
 		return result, nil
 	}
-	if sawOnlyWFA {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v; fallback probes failed: %v", ErrNoGateway, errOnlyWFADevices, err)
+	return DiscoveryResult{}, discoveryFailureError(ssdpErr, sawOnlyWFA, err)
+}
+
+func discoveryFailureError(ssdpErr error, sawOnlyWFA bool, fallbackErr error) error {
+	if ssdpErr != nil {
+		return fmt.Errorf("%w: SSDP discovery failed: %v; fallback probes failed: %v", ErrNoGateway, ssdpErr, fallbackErr)
 	}
-	return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, err)
+	if sawOnlyWFA {
+		return fmt.Errorf("%w: %v; fallback probes failed: %v", ErrNoGateway, errOnlyWFADevices, fallbackErr)
+	}
+	return fmt.Errorf("%w: %v", ErrNoGateway, fallbackErr)
 }
 
 func discoverFromInterface(iface discoverInterface) (DiscoveryResult, error) {
@@ -90,10 +106,11 @@ func discoverFromSSDPResponses(responses []ssdpResponse, noMatchMessage string) 
 		if err == nil {
 			return result, nil
 		}
+		lastErr = fmt.Errorf("SSDP location %q for search target %q and service %q: %w", response.Location, response.SearchTarget, response.ST, err)
 	}
 
 	if lastErr != nil {
-		return DiscoveryResult{}, fmt.Errorf("%w: %v", ErrNoGateway, lastErr)
+		return DiscoveryResult{}, fmt.Errorf("%w: %w", ErrNoGateway, lastErr)
 	}
 	if len(responses) > 0 && wfaCount == len(responses) {
 		return DiscoveryResult{}, fmt.Errorf("%w: %w", ErrNoGateway, errOnlyWFADevices)
