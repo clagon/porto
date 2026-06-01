@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
+  import { MAX_LEASE_DURATION_SECONDS, validatePortMapping } from './lib/validate';
 
   export let port = null;
 
@@ -10,15 +11,27 @@
   let protocol = 'tcp';
   let leaseDurationValue = 0;
   let leaseUnit = 'hours';
+  let hasSubmitted = false;
 
   const unitSeconds = { minutes: 60, hours: 3600, days: 86400 };
   const unitLabels = { minutes: '分', hours: '時間', days: '日' };
 
   $: isEdit = port !== null;
+  $: portNumberValue = portNumber === '' ? NaN : Number(portNumber);
   $: leaseDurationSeconds =
     !leaseDurationValue || leaseDurationValue <= 0 ? 0 : leaseDurationValue * unitSeconds[leaseUnit];
+  $: pendingMapping = {
+    protocol,
+    external_port: portNumberValue,
+    internal_port: portNumberValue,
+    internal_ip: '',
+    description: appName,
+    lease_duration_seconds: leaseDurationSeconds
+  };
+  $: validationErrors = validatePortMapping(pendingMapping, { allowAutoInternalIP: true });
   $: isUnlimited = leaseDurationSeconds === 0;
-  $: isExceeded = leaseDurationSeconds > 604800;
+  $: isExceeded = leaseDurationSeconds > MAX_LEASE_DURATION_SECONDS;
+  $: visibleValidationErrors = hasSubmitted || isExceeded ? validationErrors : [];
 
   onMount(() => {
     if (port) {
@@ -44,9 +57,12 @@
   });
 
   function submit() {
+    hasSubmitted = true;
+    if (validationErrors.length > 0) return;
+
     dispatch('submit', {
       appName,
-      portNumber: parseInt(portNumber, 10),
+      portNumber: portNumberValue,
       protocol,
       leaseDurationSeconds
     });
@@ -146,13 +162,24 @@
             <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl">
               <span class="material-symbols-outlined text-red-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">error</span>
               <p class="font-label-sm text-label-sm text-red-600">
-                <strong>有効期間は最大 7 日（604,800 秒）です。</strong>値を小さくしてください。
+                <strong>有効期間は最大 7 日（{MAX_LEASE_DURATION_SECONDS.toLocaleString()} 秒）です。</strong>値を小さくしてください。
               </p>
             </div>
           {:else}
             <p class="font-label-sm text-label-sm text-text-muted px-1">
               {leaseDurationValue}{unitLabels[leaseUnit]}後に自動でポートが閉じられます。
             </p>
+          {/if}
+
+          {#if visibleValidationErrors.length > 0}
+            <div class="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl" role="alert">
+              <span class="material-symbols-outlined text-red-500 text-base mt-0.5" style="font-variation-settings: 'FILL' 1;">error</span>
+              <ul class="font-label-sm text-label-sm text-red-600 space-y-1">
+                {#each visibleValidationErrors as validationError (validationError)}
+                  <li>{validationError}</li>
+                {/each}
+              </ul>
+            </div>
           {/if}
         </div>
 
@@ -177,7 +204,7 @@
         </div>
 
         <div class="pt-6">
-          <button class="w-full py-4 px-6 bg-primary text-on-primary rounded-full font-headline-md-mobile text-headline-md-mobile hover:bg-surface-tint hover:-translate-y-1 hover:shadow-ambient-hover transition-all duration-200 flex items-center justify-center gap-2 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none" type="submit" disabled={isExceeded}>
+          <button class="w-full py-4 px-6 bg-primary text-on-primary rounded-full font-headline-md-mobile text-headline-md-mobile hover:bg-surface-tint hover:-translate-y-1 hover:shadow-ambient-hover transition-all duration-200 flex items-center justify-center gap-2 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none" type="submit">
             <div class="absolute inset-0 border-2 border-white/20 rounded-full"></div>
             <span>{isEdit ? '変更を保存する' : '共有を開始する'}</span>
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform duration-200">

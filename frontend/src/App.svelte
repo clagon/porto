@@ -3,7 +3,7 @@
   import { fade } from 'svelte/transition';
   import { api } from './lib/api';
   import { busy, blocking, settings, status } from './lib/stores';
-  import { validateSettings } from './lib/validate';
+  import { validatePortMapping, validateSettings } from './lib/validate';
   import { parseError } from './lib/error';
 
   import Dashboard from './Dashboard.svelte';
@@ -78,8 +78,8 @@
     }
   }
 
-  async function openPort(portData) {
-    const mapping = {
+  function buildPortMapping(portData) {
+    return {
       protocol: portData.protocol,
       external_port: portData.portNumber,
       internal_port: portData.portNumber,
@@ -87,6 +87,21 @@
       description: portData.appName,
       lease_duration_seconds: portData.leaseDurationSeconds ?? 0
     };
+  }
+
+  function validateAutoInternalPortMapping(mapping) {
+    const errors = validatePortMapping(mapping, { allowAutoInternalIP: true });
+    if (errors.length > 0) {
+      error = errors.join(', ');
+      return false;
+    }
+    return true;
+  }
+
+  async function openPort(portData) {
+    const mapping = buildPortMapping(portData);
+    if (!validateAutoInternalPortMapping(mapping)) return;
+
     await runAction(() => api.openPort(mapping), 'ポートを開放しています...');
     isAddModalOpen = false;
   }
@@ -108,19 +123,14 @@
   async function handleAddPortSubmit(event) {
     const portData = event.detail;
     if (editingPort) {
+      const mapping = buildPortMapping(portData);
+      if (!validateAutoInternalPortMapping(mapping)) return;
+
       await runAction(async () => {
         await api.closePort({
           external_port: editingPort.external_port,
           protocol: editingPort.protocol
         });
-        const mapping = {
-          protocol: portData.protocol,
-          external_port: portData.portNumber,
-          internal_port: portData.portNumber,
-          internal_ip: '',
-          description: portData.appName,
-          lease_duration_seconds: portData.leaseDurationSeconds ?? 0
-        };
         await api.openPort(mapping);
       }, 'ポートの設定を変更しています...');
       editingPort = null;
