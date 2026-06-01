@@ -69,6 +69,7 @@ export default tseslint.config(
   {
     files: ['src/HelpApp.svelte'],
     rules: {
+      // bundled Markdown は renderHelpMarkdown で raw HTML を無効化し、URL 属性を制限してから描画する。
       'svelte/no-at-html-tags': 'off',
     },
   },

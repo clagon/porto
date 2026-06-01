@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { marked } from 'marked';
   import usageMd from '../docs/usage.md?raw';
   import minecraftMd from '../docs/minecraft.md?raw';
   import securityMd from '../docs/security.md?raw';
+  import { renderHelpMarkdown } from './lib/markdown.js';
 
   const docs = [
     { id: 'usage', title: '使い方ガイド', subtitle: 'Usage Guide', content: usageMd, icon: 'menu_book' },
@@ -13,7 +13,7 @@
   let activeDocId = 'usage';
 
   $: activeDoc = docs.find(d => d.id === activeDocId) || docs[0];
-  $: htmlContent = marked(activeDoc.content);
+  $: htmlContent = renderHelpMarkdown(activeDoc.content);
 </script>
 
 <div class="min-h-screen bg-background-page dark:bg-background-page flex flex-col font-body-md text-text-main antialiased">
@@ -82,6 +82,7 @@
 
       <!-- Markdown Body -->
       <article class="markdown-body relative z-10">
+        <!-- renderHelpMarkdown は raw HTML をエスケープし、危険 URL を除外してから HTML を返す。 -->
         {@html htmlContent}
       </article>
     </main>
