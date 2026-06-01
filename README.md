@@ -81,6 +81,26 @@ Example:
 go run ./cmd/porto --listen-addr 127.0.0.1:9090 --no-browser
 ```
 
+### CLI Port Mapping
+
+You can also open and close router port mappings without starting the web UI:
+
+```bash
+go run ./cmd/porto open 25565
+go run ./cmd/porto close 25565
+```
+
+`open` defaults to `TCP`, maps the same internal port as the external port, and auto-detects the local IP address. Use flags for other cases:
+
+```bash
+go run ./cmd/porto open --protocol udp --internal-port 19132 --description "Minecraft Bedrock" 19132
+```
+
+Available subcommands:
+- `open [flags] PORT` - discover the router and add a port mapping.
+- `close [flags] PORT` - discover the router and remove a port mapping.
+- `status` - show the discovered router and current local mappings.
+
 ---
 
 ## 📖 User Guides & Documentation
@@ -115,4 +135,3 @@ npm --prefix frontend run build
 ```
 
 GitHub Actions runs the same backend test, frontend lint, and frontend build checks on pushes and pull requests.
-
