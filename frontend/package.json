@@ -9,6 +9,7 @@
     "build": "vite build",
     "postbuild": "node scripts/ensure-backend-assets-keep.mjs",
     "preview": "vite preview",
+    "test:markdown": "node --test src/lib/markdown.test.mjs",
     "lint": "eslint .",
     "check:refresh-contract": "node scripts/check-refresh-contract.mjs"
   },
