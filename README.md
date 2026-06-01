@@ -66,6 +66,21 @@ Note: If it does not open automatically, navigate to the URL below. If you chang
 
 ---
 
+### Build a Windows Executable Without a Console
+
+When distributing Porto on Windows, build the backend with the Windows GUI subsystem so launching `porto.exe` does not open a console window:
+
+```powershell
+cd backend
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
+```
+
+For development builds, omit `-ldflags="-H=windowsgui"` so logs remain visible in the terminal.
+
+---
+
 ## ⚙️ CLI Options
 
 You can customize Porto's behavior with the following command-line flags:
@@ -115,4 +130,3 @@ npm --prefix frontend run build
 ```
 
 GitHub Actions runs the same backend test, frontend lint, and frontend build checks on pushes and pull requests.
-

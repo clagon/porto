@@ -66,6 +66,21 @@ go run ./cmd/porto
 
 ---
 
+### コンソールを表示しない Windows 実行ファイルのビルド
+
+Windows 向けに Porto を配布する場合は、Go の Windows GUI サブシステムを指定してバックエンドをビルドすると、`porto.exe` 起動時にコンソールウィンドウが表示されません。
+
+```powershell
+cd backend
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
+```
+
+開発用ビルドでは、ターミナルでログを確認できるように `-ldflags="-H=windowsgui"` を付けずにビルドしてください。
+
+---
+
 ## ⚙️ コマンドラインオプション
 
 以下のコマンドラインフラグで、Porto の動作をカスタマイズできます。
@@ -115,4 +130,3 @@ npm --prefix frontend run build
 ```
 
 GitHub Actions でも同じ backend test / frontend lint / frontend build を push と pull request ごとに実行します。
-
