@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/clagon/port-mapper/backend/internal/config"
+	"github.com/clagon/port-mapper/backend/internal/domain"
 	"github.com/clagon/port-mapper/backend/internal/server"
 	"github.com/clagon/port-mapper/backend/internal/service"
 	"github.com/clagon/port-mapper/backend/internal/upnp"
@@ -117,6 +118,30 @@ func (a *App) Handler() http.Handler {
 		return http.NewServeMux()
 	}
 	return a.server.Handler()
+}
+
+// Discover は、アプリケーションコンテナが保持するサービスで UPnP ルーター探索を実行します。
+func (a *App) Discover() (service.Status, error) {
+	if a == nil || a.service == nil {
+		return service.Status{}, nil
+	}
+	return a.service.Discover()
+}
+
+// OpenPort は、UPnP ルーターへポートマッピング追加要求を送信します。
+func (a *App) OpenPort(mapping domain.PortMapping) (service.Status, error) {
+	if a == nil || a.service == nil {
+		return service.Status{}, nil
+	}
+	return a.service.OpenPort(mapping)
+}
+
+// ClosePort は、UPnP ルーターから指定されたポートマッピングを削除します。
+func (a *App) ClosePort(mapping domain.PortMapping) (service.Status, error) {
+	if a == nil || a.service == nil {
+		return service.Status{}, nil
+	}
+	return a.service.ClosePort(mapping)
 }
 
 // Start は、ブラウザの自動起動など、サーバー実行前の初期起動処理を行います。

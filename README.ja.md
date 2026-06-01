@@ -81,6 +81,26 @@ go run ./cmd/porto
 go run ./cmd/porto --listen-addr 127.0.0.1:9090 --no-browser
 ```
 
+### CLI でのポートマッピング
+
+Web UI を起動せず、コマンドラインから直接ルーターのポートマッピングを開閉できます。
+
+```bash
+go run ./cmd/porto open 25565
+go run ./cmd/porto close 25565
+```
+
+`open` は既定で `TCP` を使い、外部ポートと同じ内部ポートをマッピングします。ローカル IP は自動検出されます。必要に応じてフラグで指定できます。
+
+```bash
+go run ./cmd/porto open --protocol udp --internal-port 19132 --description "Minecraft Bedrock" 19132
+```
+
+利用できるサブコマンド:
+- `open [flags] PORT` - ルーターを探索してポートマッピングを追加します。
+- `close [flags] PORT` - ルーターを探索してポートマッピングを削除します。
+- `status` - 検出されたルーターと現在のローカルマッピングを表示します。
+
 ---
 
 ## 📖 ユーザーガイド & ドキュメント
@@ -115,4 +135,3 @@ npm --prefix frontend run build
 ```
 
 GitHub Actions でも同じ backend test / frontend lint / frontend build を push と pull request ごとに実行します。
-
