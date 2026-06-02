@@ -2,6 +2,7 @@ import type { PortMapping, Settings } from './types';
 
 export const MAX_PORT_NUMBER = 65535;
 export const MAX_LEASE_DURATION_SECONDS = 7 * 24 * 60 * 60;
+export const DEFAULT_LEASE_DURATION_SECONDS = 2 * 60 * 60;
 
 type PortMappingValidationOptions = {
   allowAutoInternalIP?: boolean;
