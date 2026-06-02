@@ -40,6 +40,7 @@ func staticHandler(browserToken string) echo.HandlerFunc {
 		}
 		if path.Clean(name) == "index.html" {
 			data = injectBrowserToken(data, browserToken)
+			c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 		}
 
 		http.ServeContent(c.Response().Writer, c.Request(), path.Base(name), time.Time{}, bytes.NewReader(data))

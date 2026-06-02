@@ -66,9 +66,9 @@ Note: If it does not open automatically, navigate to the URL below. If you chang
 
 ---
 
-### Build a Windows Executable Without a Console
+### Windows Console Window Policy
 
-When distributing Porto on Windows, build the backend with the Windows GUI subsystem so launching `porto.exe` does not open a console window:
+Go can build Porto with the Windows GUI subsystem so launching `porto.exe` does not open a console window:
 
 ```powershell
 cd backend
@@ -77,7 +77,7 @@ $env:GOARCH = "amd64"
 go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
 ```
 
-For development builds, omit `-ldflags="-H=windowsgui"` so logs remain visible in the terminal.
+Do not use this mode for normal distribution until Porto has an explicit in-app quit control or tray menu. For now, keep the console visible so users can stop the app with `Ctrl+C` and developers can see logs.
 
 ---
 

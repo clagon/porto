@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/labstack/echo/v4"
 )
 
 func TestStatic(t *testing.T) {
@@ -21,10 +23,11 @@ func TestStatic(t *testing.T) {
 		path              string
 		wantStatus        int    // httptest.ResponseRecorder.Code
 		wantBodySubstring string // static HTML body substring
+		wantCacheControl  string // Cache-Control header value
 	}{
-		{name: "root serves index", path: "/", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper"},
-		{name: "root injects browser token", path: "/", wantStatus: http.StatusOK, wantBodySubstring: `meta name="porto-browser-token"`},
-		{name: "spa fallback serves index", path: "/dashboard", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper"},
+		{name: "root serves index", path: "/", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper", wantCacheControl: "no-store"},
+		{name: "root injects browser token", path: "/", wantStatus: http.StatusOK, wantBodySubstring: `meta name="porto-browser-token"`, wantCacheControl: "no-store"},
+		{name: "spa fallback serves index", path: "/dashboard", wantStatus: http.StatusOK, wantBodySubstring: "port-mapper", wantCacheControl: "no-store"},
 	}
 
 	srv := New("127.0.0.1:8080", nil, nil)
@@ -39,6 +42,9 @@ func TestStatic(t *testing.T) {
 			body, _ := io.ReadAll(rec.Body)
 			if !strings.Contains(string(body), tt.wantBodySubstring) {
 				t.Fatalf("body missing %q: %s", tt.wantBodySubstring, string(body))
+			}
+			if rec.Header().Get(echo.HeaderCacheControl) != tt.wantCacheControl {
+				t.Fatalf("Cache-Control = %q, want %q", rec.Header().Get(echo.HeaderCacheControl), tt.wantCacheControl)
 			}
 		})
 	}

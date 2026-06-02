@@ -1,10 +1,40 @@
 import type { HealthResponse, PortMapping, Settings, StatusResponse } from './types';
 
+const browserTokenReloadKey = 'porto.browserTokenReloaded';
+const invalidBrowserTokenMessage = 'invalid browser token';
+
 function browserToken(): string {
   if (typeof document === 'undefined') {
     return '';
   }
   return document.querySelector<HTMLMetaElement>('meta[name="porto-browser-token"]')?.content ?? '';
+}
+
+function clearBrowserTokenReloadFlag(): void {
+  if (typeof sessionStorage === 'undefined') {
+    return;
+  }
+  try {
+    sessionStorage.removeItem(browserTokenReloadKey);
+  } catch {
+    // Ignore storage errors in restricted browser contexts.
+  }
+}
+
+function reloadForFreshBrowserToken(): boolean {
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+    return false;
+  }
+  try {
+    if (sessionStorage.getItem(browserTokenReloadKey) === '1') {
+      return false;
+    }
+    sessionStorage.setItem(browserTokenReloadKey, '1');
+  } catch {
+    return false;
+  }
+  window.location.reload();
+  return true;
 }
 
 function requestHeaders(init?: RequestInit): Headers {
@@ -41,8 +71,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       errMsg = `${path} failed: ${res.status}`;
     }
+    if (res.status === 401 && errMsg.includes(invalidBrowserTokenMessage) && reloadForFreshBrowserToken()) {
+      throw new Error('ブラウザトークンを更新しています...');
+    }
     throw new Error(errMsg);
   }
+  clearBrowserTokenReloadFlag();
   return (await res.json()) as T;
 }
 

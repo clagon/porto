@@ -24,12 +24,6 @@ jobs:
       - name: Build backend
         working-directory: backend
         run: go build ./...
-      - name: Build Windows GUI backend
-        working-directory: backend
-        env:
-          GOOS: windows
-          GOARCH: amd64
-        run: go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
       - name: Run backend tests
         working-directory: backend
         run: go test ./...
