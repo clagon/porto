@@ -71,7 +71,11 @@ Note: If it does not open automatically, navigate to the URL below. If you chang
 Go can build Porto with the Windows GUI subsystem so launching `porto.exe` does not open a console window:
 
 ```powershell
-cd backend
+cd frontend
+npm install
+npm run build
+
+cd ../backend
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto

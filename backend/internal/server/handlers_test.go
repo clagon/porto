@@ -264,6 +264,15 @@ func TestMutatingEndpointsRequireBrowserToken(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
+			name: "同一オリジンブラウザリクエストは古いトークンでも許可する",
+			configure: func(req *http.Request) {
+				req.Header.Set(echo.HeaderAuthorization, "Bearer stale-token")
+				req.Header.Set(echo.HeaderOrigin, "http://127.0.0.1:8080")
+				req.Header.Set("Sec-Fetch-Site", "same-origin")
+			},
+			wantStatus: http.StatusAccepted,
+		},
+		{
 			name: "同一ローカルOriginを許可する",
 			configure: func(req *http.Request) {
 				authorizeRequest(req, srv)

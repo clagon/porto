@@ -71,7 +71,11 @@ go run ./cmd/porto
 Go の Windows GUI サブシステムを指定してビルドすると、`porto.exe` 起動時にコンソールウィンドウを表示しない実行ファイルを作成できます。
 
 ```powershell
-cd backend
+cd frontend
+npm install
+npm run build
+
+cd ../backend
 $env:GOOS = "windows"
 $env:GOARCH = "amd64"
 go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
