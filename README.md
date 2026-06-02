@@ -66,6 +66,25 @@ Note: If it does not open automatically, navigate to the URL below. If you chang
 
 ---
 
+### Windows Console Window Policy
+
+Go can build Porto with the Windows GUI subsystem so launching `porto.exe` does not open a console window:
+
+```powershell
+cd frontend
+npm install
+npm run build
+
+cd ../backend
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
+```
+
+Do not use this mode for normal distribution until Porto has an explicit in-app quit control or tray menu. For now, keep the console visible so users can stop the app with `Ctrl+C` and developers can see logs.
+
+---
+
 ## ⚙️ CLI Options
 
 You can customize Porto's behavior with the following command-line flags:

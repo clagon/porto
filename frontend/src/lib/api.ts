@@ -1,5 +1,7 @@
 import type { HealthResponse, PortMapping, Settings, StatusResponse } from './types';
 
+const invalidBrowserTokenMessage = 'invalid browser token';
+
 function browserToken(): string {
   if (typeof document === 'undefined') {
     return '';
@@ -17,7 +19,41 @@ function requestHeaders(init?: RequestInit): Headers {
   return headers;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+function updateBrowserToken(token: string): void {
+  if (typeof document === 'undefined' || !token) {
+    return;
+  }
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="porto-browser-token"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'porto-browser-token';
+    document.head.appendChild(meta);
+  }
+  meta.content = token;
+}
+
+async function refreshBrowserToken(): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const res = await fetch(`/?porto_token_refresh=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { Accept: 'text/html' },
+  });
+  if (!res.ok) {
+    return false;
+  }
+  const html = await res.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const token = doc.querySelector<HTMLMetaElement>('meta[name="porto-browser-token"]')?.content ?? '';
+  if (!token || token === browserToken()) {
+    return false;
+  }
+  updateBrowserToken(token);
+  return true;
+}
+
+async function request<T>(path: string, init?: RequestInit, allowTokenRefresh = true): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: requestHeaders(init),
@@ -40,6 +76,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       }
     } catch {
       errMsg = `${path} failed: ${res.status}`;
+    }
+    if (allowTokenRefresh && res.status === 401 && errMsg.includes(invalidBrowserTokenMessage) && await refreshBrowserToken()) {
+      return request<T>(path, init, false);
     }
     throw new Error(errMsg);
   }

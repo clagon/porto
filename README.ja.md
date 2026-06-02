@@ -66,6 +66,25 @@ go run ./cmd/porto
 
 ---
 
+### Windows のコンソール表示方針
+
+Go の Windows GUI サブシステムを指定してビルドすると、`porto.exe` 起動時にコンソールウィンドウを表示しない実行ファイルを作成できます。
+
+```powershell
+cd frontend
+npm install
+npm run build
+
+cd ../backend
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go build -buildvcs=false -ldflags="-H=windowsgui" -o ../dist/porto-windows-amd64.exe ./cmd/porto
+```
+
+ただし、Porto に明示的なアプリ内終了ボタンまたはトレイメニューが入るまでは、このモードを通常配布には使わないでください。現時点では、ユーザーが `Ctrl+C` で停止でき、開発者がログも確認できるようにコンソールを表示したままにします。
+
+---
+
 ## ⚙️ コマンドラインオプション
 
 以下のコマンドラインフラグで、Porto の動作をカスタマイズできます。

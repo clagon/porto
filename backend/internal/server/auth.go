@@ -41,14 +41,14 @@ func browserTokenMiddleware(token, listenAddr string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
-			if !isBearerToken(token, req.Header.Get(echo.HeaderAuthorization)) {
-				return echo.NewHTTPError(http.StatusUnauthorized, "invalid browser token")
-			}
 			if !isAllowedFetchSite(req.Header.Get("Sec-Fetch-Site")) {
 				return echo.NewHTTPError(http.StatusForbidden, "cross-site request is not allowed")
 			}
 			if !isAllowedOrigin(req, listenAddr) {
 				return echo.NewHTTPError(http.StatusForbidden, "cross-origin request is not allowed")
+			}
+			if !isBearerToken(token, req.Header.Get(echo.HeaderAuthorization)) {
+				return echo.NewHTTPError(http.StatusUnauthorized, "invalid browser token")
 			}
 			if !strings.HasPrefix(req.Header.Get(echo.HeaderContentType), echo.MIMEApplicationJSON) {
 				return echo.NewHTTPError(http.StatusUnsupportedMediaType, "application/json is required")
