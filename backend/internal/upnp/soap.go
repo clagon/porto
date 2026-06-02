@@ -13,6 +13,8 @@ import (
 	"github.com/clagon/port-mapper/backend/internal/domain"
 )
 
+const maxSOAPResponseBytes = 1 << 20
+
 // SOAPClient は、ルーターの制御 URL に対して UPnP SOAP (Simple Object Access Protocol) リクエストを実行するためのクライアント構造体です。
 type SOAPClient struct {
 	Endpoint    string
@@ -22,9 +24,14 @@ type SOAPClient struct {
 
 func (c *SOAPClient) client() *http.Client {
 	if c != nil && c.HTTPClient != nil {
-		return c.HTTPClient
+		client := *c.HTTPClient
+		client.CheckRedirect = validateUPnPRedirect
+		return &client
 	}
-	return &http.Client{Timeout: 5 * time.Second}
+	return &http.Client{
+		Timeout:       5 * time.Second,
+		CheckRedirect: validateUPnPRedirect,
+	}
 }
 
 // GetExternalIPAddress は、ルーターの WAN グローバル（外部）IP アドレスを取得するための SOAP アクション（GetExternalIPAddress）を呼び出します。
@@ -142,7 +149,12 @@ func (c *SOAPClient) call(action string, body map[string]string) ([]byte, error)
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, c.Endpoint, bytes.NewReader(envelope))
+	endpoint, err := parseAllowedUPnPURL(c.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid soap endpoint: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, endpoint.String(), bytes.NewReader(envelope))
 	if err != nil {
 		return nil, fmt.Errorf("create soap request: %w", err)
 	}
@@ -155,7 +167,7 @@ func (c *SOAPClient) call(action string, body map[string]string) ([]byte, error)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := readSOAPResponseBody(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("read soap response: %w", err)
 	}
@@ -167,6 +179,17 @@ func (c *SOAPClient) call(action string, body map[string]string) ([]byte, error)
 	}
 	if faultErr := parseSOAPFault(data); faultErr != nil {
 		return nil, faultErr
+	}
+	return data, nil
+}
+
+func readSOAPResponseBody(r io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(r, maxSOAPResponseBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxSOAPResponseBytes {
+		return nil, fmt.Errorf("soap response exceeds %d bytes", maxSOAPResponseBytes)
 	}
 	return data, nil
 }
