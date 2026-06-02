@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -93,7 +92,7 @@ func TestSOAPGetExternalIPAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c := newTestSOAPClient(t, func(r *http.Request) *http.Response {
 				if r.Method != http.MethodPost {
 					t.Fatalf("method = %s, want POST", r.Method)
 				}
@@ -101,23 +100,15 @@ func TestSOAPGetExternalIPAddress(t *testing.T) {
 					t.Fatalf("SOAPAction = %q", got)
 				}
 				_, _ = io.ReadAll(r.Body)
-				w.Header().Set("Content-Type", "text/xml")
-				_, _ = w.Write([]byte(`<?xml version="1.0"?>
+				return soapTestResponse(r, http.StatusOK, `<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
   <s:Body>
     <u:GetExternalIPAddressResponse xmlns:u="urn:schemas-upnp-org:service:WANIPConnection:2">
       <NewExternalIPAddress>203.0.113.42</NewExternalIPAddress>
     </u:GetExternalIPAddressResponse>
   </s:Body>
-</s:Envelope>`))
-			}))
-			defer server.Close()
-
-			c := &SOAPClient{
-				Endpoint:    server.URL,
-				ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
-				HTTPClient:  server.Client(),
-			}
+</s:Envelope>`)
+			})
 			got, err := c.GetExternalIPAddress()
 			if err != nil {
 				t.Fatalf("GetExternalIPAddress() error = %v", err)
@@ -149,9 +140,8 @@ func TestSOAPClientDefaultTimeout(t *testing.T) {
 }
 
 func TestSOAPGenericPortMappingEntryIndexInvalid(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`<?xml version="1.0"?>
+	c := newTestSOAPClient(t, func(r *http.Request) *http.Response {
+		return soapTestResponse(r, http.StatusInternalServerError, `<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
   <s:Body>
     <s:Fault>
@@ -165,18 +155,62 @@ func TestSOAPGenericPortMappingEntryIndexInvalid(t *testing.T) {
       </detail>
     </s:Fault>
   </s:Body>
-</s:Envelope>`))
-	}))
-	defer server.Close()
+</s:Envelope>`)
+	})
 
-	c := &SOAPClient{
-		Endpoint:    server.URL,
-		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
-		HTTPClient:  server.Client(),
-	}
 	_, err := c.GetGenericPortMappingEntry(0)
 	if !errors.Is(err, domain.ErrNoPortMappingEntry) {
 		t.Fatalf("GetGenericPortMappingEntry() error = %v, want ErrNoPortMappingEntry", err)
+	}
+}
+
+func TestSOAPClientRejectsInvalidEndpoint(t *testing.T) {
+	c := &SOAPClient{
+		Endpoint:    "http://127.0.0.1:1900/control",
+		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return soapTestResponse(r, http.StatusOK, ""), nil
+			}),
+		},
+	}
+
+	_, err := c.GetExternalIPAddress()
+	if err == nil {
+		t.Fatal("GetExternalIPAddress() error = nil, want invalid endpoint error")
+	}
+	if !strings.Contains(err.Error(), "invalid soap endpoint") {
+		t.Fatalf("error = %v, want invalid soap endpoint", err)
+	}
+}
+
+func TestSOAPClientRejectsRedirect(t *testing.T) {
+	c := newTestSOAPClient(t, func(r *http.Request) *http.Response {
+		resp := soapTestResponse(r, http.StatusFound, "")
+		resp.Header.Set("Location", "http://192.168.1.2:1900/control")
+		return resp
+	})
+
+	_, err := c.GetExternalIPAddress()
+	if err == nil {
+		t.Fatal("GetExternalIPAddress() error = nil, want redirect error")
+	}
+	if !strings.Contains(err.Error(), "redirect target host") {
+		t.Fatalf("error = %v, want redirect host error", err)
+	}
+}
+
+func TestSOAPClientRejectsOversizedResponse(t *testing.T) {
+	c := newTestSOAPClient(t, func(r *http.Request) *http.Response {
+		return soapTestResponse(r, http.StatusOK, strings.Repeat("x", maxSOAPResponseBytes+1))
+	})
+
+	_, err := c.GetExternalIPAddress()
+	if err == nil {
+		t.Fatal("GetExternalIPAddress() error = nil, want size limit error")
+	}
+	if !strings.Contains(err.Error(), "soap response exceeds") {
+		t.Fatalf("error = %v, want size limit error", err)
 	}
 }
 
@@ -190,9 +224,8 @@ func TestSOAPFault(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(`<?xml version="1.0"?>
+			c := newTestSOAPClient(t, func(r *http.Request) *http.Response {
+				return soapTestResponse(r, http.StatusInternalServerError, `<?xml version="1.0"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
   <s:Body>
     <s:Fault>
@@ -206,15 +239,8 @@ func TestSOAPFault(t *testing.T) {
       </detail>
     </s:Fault>
   </s:Body>
-</s:Envelope>`))
-			}))
-			defer server.Close()
-
-			c := &SOAPClient{
-				Endpoint:    server.URL,
-				ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
-				HTTPClient:  server.Client(),
-			}
+</s:Envelope>`)
+			})
 			_, err := c.GetExternalIPAddress()
 			if err == nil {
 				t.Fatal("GetExternalIPAddress() error = nil, want error")
@@ -223,5 +249,34 @@ func TestSOAPFault(t *testing.T) {
 				t.Fatalf("error = %v, want SOAP fault", err)
 			}
 		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func newTestSOAPClient(t *testing.T, handler func(*http.Request) *http.Response) *SOAPClient {
+	t.Helper()
+	return &SOAPClient{
+		Endpoint:    "http://192.168.1.1:1900/control",
+		ServiceType: "urn:schemas-upnp-org:service:WANIPConnection:2",
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return handler(r), nil
+			}),
+		},
+	}
+}
+
+func soapTestResponse(r *http.Request, statusCode int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: statusCode,
+		Status:     http.StatusText(statusCode),
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    r,
 	}
 }
