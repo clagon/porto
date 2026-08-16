@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import assert from 'node:assert/strict';
 
-import { MAX_LEASE_DURATION_SECONDS, validatePortMapping } from '../src/lib/validate.ts';
+import {
+  DEFAULT_LEASE_DURATION_SECONDS,
+  MAX_LEASE_DURATION_SECONDS,
+  validatePortMapping,
+} from '../src/lib/validate.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const backendModels = readFileSync(resolve(root, '../backend/internal/domain/models.go'), 'utf8');
@@ -14,6 +18,11 @@ assert(
   'backend MaxLeaseDurationSeconds expression changed; update frontend contract intentionally',
 );
 assert.equal(MAX_LEASE_DURATION_SECONDS, 604800, 'frontend max lease duration must remain 7 days');
+assert.equal(DEFAULT_LEASE_DURATION_SECONDS, 7200, 'new port form default lease must remain 2 hours');
+assert(
+  DEFAULT_LEASE_DURATION_SECONDS > 0 && DEFAULT_LEASE_DURATION_SECONDS <= MAX_LEASE_DURATION_SECONDS,
+  'default lease duration must be a finite lease within the allowed range',
+);
 
 const validMapping = {
   protocol: 'TCP',

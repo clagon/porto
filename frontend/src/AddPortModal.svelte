@@ -1,20 +1,21 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
-  import { MAX_LEASE_DURATION_SECONDS, validatePortMapping } from './lib/validate';
+  import { DEFAULT_LEASE_DURATION_SECONDS, MAX_LEASE_DURATION_SECONDS, validatePortMapping } from './lib/validate';
 
   export let port = null;
 
   const dispatch = createEventDispatcher();
 
+  const unitSeconds = { minutes: 60, hours: 3600, days: 86400 };
+  const unitLabels = { minutes: '分', hours: '時間', days: '日' };
+  const defaultLeaseUnit = 'hours';
+
   let appName = '';
   let portNumber = '';
   let protocol = 'tcp';
-  let leaseDurationValue = 0;
-  let leaseUnit = 'hours';
+  let leaseDurationValue = DEFAULT_LEASE_DURATION_SECONDS / unitSeconds[defaultLeaseUnit];
+  let leaseUnit = defaultLeaseUnit;
   let hasSubmitted = false;
-
-  const unitSeconds = { minutes: 60, hours: 3600, days: 86400 };
-  const unitLabels = { minutes: '分', hours: '時間', days: '日' };
 
   $: isEdit = port !== null;
   $: portNumberValue = portNumber === '' ? NaN : Number(portNumber);
@@ -133,7 +134,7 @@
                 bind:value={leaseDurationValue}
                 type="number"
                 min="0"
-                placeholder="0"
+                placeholder="2"
               />
             </div>
             <div class="relative">
